@@ -1,0 +1,236 @@
+const mongoose = require('mongoose');
+
+const UserSchema = new mongoose.Schema({
+    username: { type: String, unique: true, required: true },
+    hashed_password: { type: String, required: true },
+    role: { type: String, enum: ['Admin', 'Accountant', 'Viewer'], default: 'Viewer' },
+    is_active: { type: Boolean, default: true }
+}, { timestamps: true });
+
+const GlobalSettingSchema = new mongoose.Schema({
+    key: { type: String, unique: true, required: true },
+    value: { type: String }
+});
+
+const CounterSchema = new mongoose.Schema({
+    _id: { type: String, required: true },
+    seq: { type: Number, default: 0 }
+});
+const Counter = mongoose.model('Counter', CounterSchema);
+
+const AccountSchema = new mongoose.Schema({
+    code: { type: String, unique: true, required: true },
+    name: { type: String, unique: true, required: true },
+    type: { type: String, required: true },
+    subtype: { type: String, required: true },
+    opening_balance_bdt: { type: Number, default: 0 },
+    current_balance_bdt: { type: Number, default: 0 },
+    opening_balance_usd: { type: Number, default: 0 },
+    current_balance_usd: { type: Number, default: 0 },
+    is_active: { type: Boolean, default: true }
+}, { timestamps: true });
+
+// Transaction Schema: Stores every financial movement.
+const TransactionSchema = new mongoose.Schema({
+    date: { type: Date, default: Date.now },
+    description: { type: String },
+    amount: { type: Number, required: true },
+    currency: { type: String, default: 'BDT' }, // 'BDT' or 'USD'
+    type: { type: String, required: true }, // 'Debit' (Outgoing) or 'Credit' (Incoming)
+    conversion_type: { type: String, default: 'None' }, // 'None', 'Manual', 'Auto'
+    conversion_rate: { type: Number }, // Exchange rate used
+    converted_amount_bdt: { type: Number }, // Equivalent BDT value if USD
+    reference: { type: String },
+    source_type: { type: String }, // 'Transfer', 'Exchange', 'Bill', etc.
+    transfer_id: { type: String }, // Links two sides of a transfer
+    account_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
+    serial_number: { type: Number, unique: true }, // Simple integer ID (1, 2, 3...)
+    trx_id: { type: String, unique: true } // Formatted ID (TRX001, TRX002...)
+}, { timestamps: true });
+
+/**
+ * Pre-save Hook for Transactions:
+ * Automatically generates a sequential 'serial_number' and a formatted 'trx_id'.
+ * 
+ * Logic:
+ * 1. Checks if the transaction is new.
+ * 2. Finds and increments the global 'transaction_serial' counter.
+ * 3. Assigns the new number to 'serial_number'.
+ * 4. Formats it as 'TRX001', 'TRX002', etc. for 'trx_id'.
+ */
+TransactionSchema.pre('save', async function () {
+    if (this.isNew) {
+        const counter = await Counter.findByIdAndUpdate(
+            { _id: 'transaction_serial' },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+        this.serial_number = counter.seq;
+        this.trx_id = `TRX${String(counter.seq).padStart(3, '0')}`;
+    }
+});
+
+const AttachmentSchema = new mongoose.Schema({
+    file_path: { type: String },
+    filename: { type: String },
+    transaction_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
+    bill_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Bill' }
+});
+
+const TransactionHistorySchema = new mongoose.Schema({
+    transaction_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
+    changed_at: { type: Date, default: Date.now },
+    changed_by: { type: String },
+    field_name: { type: String },
+    old_value: { type: String },
+    new_value: { type: String }
+});
+
+const AccountHistorySchema = new mongoose.Schema({
+    account_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
+    changed_at: { type: Date, default: Date.now },
+    changed_by: { type: String },
+    reason: { type: String },
+    old_balance_bdt: { type: Number },
+    new_balance_bdt: { type: Number },
+    old_balance_usd: { type: Number },
+    new_balance_usd: { type: Number }
+});
+
+const RolePermissionSchema = new mongoose.Schema({
+    role: { type: String, enum: ['Admin', 'Accountant', 'Viewer'], required: true },
+    module: { type: String, required: true },
+    can_access: { type: Boolean, default: false }
+});
+RolePermissionSchema.index({ role: 1, module: 1 }, { unique: true });
+
+const AccountPermissionSchema = new mongoose.Schema({
+    role: { type: String, enum: ['Admin', 'Accountant', 'Viewer'], required: true },
+    account_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
+    can_access: { type: Boolean, default: true }
+});
+AccountPermissionSchema.index({ role: 1, account_id: 1 }, { unique: true });
+
+const BillSchema = new mongoose.Schema({
+    invoice_date: { type: Date, default: Date.now },
+    due_date: { type: Date, required: true },
+    description: { type: String, required: true },
+    company_name: { type: String, required: true },
+    amount: { type: Number, required: true },
+    currency: { type: String, default: 'BDT' },
+    status: { type: String, enum: ['Unpaid', 'Paid', 'Partial'], default: 'Unpaid' }
+}, { timestamps: true });
+
+BillSchema.virtual('attachments', {
+    ref: 'Attachment',
+    localField: '_id',
+    foreignField: 'bill_id'
+});
+
+TransactionSchema.virtual('attachments', {
+    ref: 'Attachment',
+    localField: '_id',
+    foreignField: 'transaction_id'
+});
+
+const EmployeeSchema = new mongoose.Schema({
+    emp_id: { type: String, unique: true, required: true },
+    name: { type: String, required: true },
+    department: { type: String },
+    designation: { type: String },
+    joining_date: { type: Date, required: true },
+    employment_type: { type: String, enum: ['Full-time', 'Contract', 'Intern'], default: 'Full-time' },
+    base_salary: { type: Number, default: 0 },
+    status: { type: String, enum: ['Active', 'On Hold', 'Exit'], default: 'Active' }
+}, { timestamps: true });
+
+EmployeeSchema.virtual('increments', {
+    ref: 'Increment',
+    localField: '_id',
+    foreignField: 'employee_id'
+});
+
+const IncrementSchema = new mongoose.Schema({
+    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+    increment_type: { type: String },
+    amount: { type: Number, required: true },
+    approved_date: { type: Date },
+    effective_date: { type: Date, required: true },
+    remarks: { type: String }
+}, { timestamps: true });
+
+const PayrollRecordSchema = new mongoose.Schema({
+    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+    month: { type: String, required: true }, // YYYY-MM
+    paid_days: { type: Number, default: 30 },
+    working_days: { type: Number, default: 30 },
+    base_salary_snapshot: { type: Number },
+    total_increments_snapshot: { type: Number },
+    transport_allowance: { type: Number, default: 0 },
+    other_allowance: { type: Number, default: 0 },
+    bonus: { type: Number, default: 0 },
+    advance_salary: { type: Number, default: 0 },
+    gross_salary: { type: Number },
+    net_salary: { type: Number },
+    remarks: { type: String },
+    status: { type: String, enum: ['Draft', 'Paid'], default: 'Draft' }
+}, { timestamps: true });
+
+const SystemLogSchema = new mongoose.Schema({
+    timestamp: { type: Date, default: Date.now },
+    user: { type: String, required: true },
+    action: { type: String, required: true },
+    detail: { type: String },
+    type: { type: String, enum: ['entry', 'edit', 'delete', 'auth', 'admin', 'setting'], default: 'entry' }
+});
+
+// Global Options for all schemas to include id virtual
+const schemaOptions = {
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+    timestamps: true
+};
+
+// Add virtuals and set options for each schema
+[UserSchema, GlobalSettingSchema, AccountSchema, TransactionSchema, AttachmentSchema,
+    TransactionHistorySchema, AccountHistorySchema, RolePermissionSchema, AccountPermissionSchema,
+    BillSchema, EmployeeSchema, IncrementSchema, PayrollRecordSchema, SystemLogSchema, CounterSchema].forEach(schema => {
+        schema.virtual('id').get(function () {
+            return this._id.toHexString();
+        });
+        schema.set('toJSON', schemaOptions.toJSON);
+        schema.set('toObject', schemaOptions.toObject);
+    });
+
+const User = mongoose.model('User', UserSchema);
+const GlobalSetting = mongoose.model('GlobalSetting', GlobalSettingSchema);
+const Account = mongoose.model('Account', AccountSchema);
+const Transaction = mongoose.model('Transaction', TransactionSchema);
+const Attachment = mongoose.model('Attachment', AttachmentSchema);
+const TransactionHistory = mongoose.model('TransactionHistory', TransactionHistorySchema);
+const AccountHistory = mongoose.model('AccountHistory', AccountHistorySchema);
+const RolePermission = mongoose.model('RolePermission', RolePermissionSchema);
+const AccountPermission = mongoose.model('AccountPermission', AccountPermissionSchema);
+const Bill = mongoose.model('Bill', BillSchema);
+const Employee = mongoose.model('Employee', EmployeeSchema);
+const Increment = mongoose.model('Increment', IncrementSchema);
+const PayrollRecord = mongoose.model('PayrollRecord', PayrollRecordSchema);
+const SystemLog = mongoose.model('SystemLog', SystemLogSchema);
+
+module.exports = {
+    User,
+    GlobalSetting,
+    Account,
+    Transaction,
+    Attachment,
+    TransactionHistory,
+    AccountHistory,
+    RolePermission,
+    AccountPermission,
+    Bill,
+    Employee,
+    Increment,
+    PayrollRecord,
+    SystemLog,
+    Counter
+};

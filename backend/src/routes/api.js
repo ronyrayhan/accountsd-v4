@@ -1,0 +1,115 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const { authenticate, authorize } = require('../middleware/auth');
+const { body, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+};
+
+// Controllers
+const accountController = require('../controllers/accountController');
+const transactionController = require('../controllers/transactionController');
+const authController = require('../controllers/authController');
+const reportController = require('../controllers/reportController');
+const settingController = require('../controllers/settingController');
+
+// Multer config for file uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}_${file.originalname}`);
+    }
+});
+const upload = multer({ storage });
+
+// AUTH
+router.post('/login', [
+    body('username').trim().notEmpty().withMessage('Username is required'),
+    body('password').notEmpty().withMessage('Password is required'),
+    validate
+], authController.login);
+router.get('/auth/me', authenticate, authController.getMe);
+
+// ACCOUNTS
+router.get('/accounts', authenticate, accountController.getAccounts);
+router.post('/accounts', authenticate, authorize('Accounting'), accountController.createAccount);
+router.delete('/accounts/:id', authenticate, authorize('Admin'), accountController.deleteAccount);
+router.post('/accounts/:id/balance', authenticate, authorize('Admin'), accountController.updateBalance);
+router.post('/accounts/recalculate', authenticate, authorize('Accounting'), accountController.recalculateBalances);
+router.get('/accounts/:id/history', authenticate, authorize(['Accounting', 'Admin']), accountController.getAccountHistory);
+
+// TRANSACTIONS
+router.get('/transactions', authenticate, authorize('Ledger'), transactionController.getTransactions);
+router.post('/transactions', authenticate, authorize('Accounting'), upload.single('file'), transactionController.createTransaction);
+router.put('/transactions/:id', authenticate, authorize('Accounting'), transactionController.updateTransaction);
+router.get('/transactions/:id/history', authenticate, authorize(['Accounting', 'Ledger', 'Admin']), transactionController.getTransactionHistory);
+router.get('/transactions/template', authenticate, transactionController.downloadTemplate);
+router.get('/transactions/export', authenticate, authorize('Ledger'), transactionController.exportLedger);
+router.post('/transactions/preview', authenticate, authorize('Accounting'), upload.single('file'), transactionController.previewTransactions);
+router.get('/transactions/account/:id', authenticate, authorize('Statements'), transactionController.getAccountStatement);
+router.get('/transactions/account/:id/download', authenticate, authorize('Statements'), transactionController.downloadAccountStatement);
+router.post('/transactions/import', authenticate, authorize('Accounting'), upload.single('file'), transactionController.importTransactions);
+
+// SETTINGS
+router.get('/settings/:key', authenticate, settingController.getSetting);
+router.post('/settings', authenticate, authorize('Settings'), settingController.setSetting);
+
+// REPORTS & STATS
+router.get('/reports/trial-balance', authenticate, authorize('Reports'), reportController.getTrialBalance);
+router.get('/reports/custom', authenticate, authorize('Reports'), reportController.getCustomSummary);
+router.get('/reports/prediction', authenticate, authorize('Reports'), reportController.getPrediction);
+router.get('/stats/accounts', authenticate, authorize(['Dashboard', 'Reports', 'Admin']), reportController.getStats);
+router.get('/logs', authenticate, authorize('Admin'), reportController.getSystemLogs);
+
+// ADMIN & USER MGMT
+router.get('/admin/users', authenticate, authorize(['Admin', 'Users']), authController.listUsers);
+router.post('/admin/users', authenticate, authorize(['Admin', 'Users']), [
+    body('username').trim().notEmpty().withMessage('Username is required').isLength({ min: 3 }),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('role').isIn(['Admin', 'Accountant', 'Viewer', 'Payroll', 'Billing', 'Users']).withMessage('Invalid role'),
+    validate
+], authController.createUser);
+router.post('/admin/users/:id/status', authenticate, authorize('Admin'), authController.toggleUserStatus);
+
+// PERMISSIONS
+router.get('/admin/permissions', authenticate, authorize('Admin'), authController.getPermissions);
+router.post('/admin/permissions', authenticate, authorize('Admin'), authController.updatePermissions);
+
+// ACCOUNT PERMISSIONS
+router.get('/admin/account-permissions', authenticate, authorize('Admin'), authController.getAccountPermissions);
+router.post('/admin/account-permissions', authenticate, authorize('Admin'), authController.updateAccountPermissions);
+
+// BILLING (ADDON)
+const billingController = require('../controllers/billingController');
+router.get('/bills', authenticate, authorize('Billing'), billingController.getBills);
+router.post('/bills', authenticate, authorize('Billing'), upload.single('file'), billingController.createBill);
+router.patch('/bills/:id/status', authenticate, authorize('Billing'), billingController.updateBillStatus);
+router.delete('/bills/:id', authenticate, authorize('Billing'), billingController.deleteBill);
+
+// PAYROLL (ADDON)
+const payrollController = require('../controllers/payrollController');
+router.get('/payroll/employees', authenticate, authorize('Payroll'), payrollController.getEmployees);
+router.post('/payroll/employees', authenticate, authorize('Payroll'), payrollController.createEmployee);
+router.put('/payroll/employees/:id', authenticate, authorize('Payroll'), payrollController.updateEmployee);
+
+router.get('/payroll/increments', authenticate, authorize('Payroll'), payrollController.getIncrements);
+router.post('/payroll/increments', authenticate, authorize('Payroll'), payrollController.createIncrement);
+router.put('/payroll/increments/:id', authenticate, authorize('Payroll'), payrollController.updateIncrement);
+router.delete('/payroll/increments/:id', authenticate, authorize('Payroll'), payrollController.deleteIncrement);
+
+router.get('/payroll/calculate', authenticate, authorize('Payroll'), payrollController.calculateSalary);
+router.get('/payroll/records', authenticate, authorize('Payroll'), payrollController.getPayrollRecords);
+router.post('/payroll/records', authenticate, authorize('Payroll'), payrollController.savePayrollRecord);
+router.put('/payroll/records/:id', authenticate, authorize('Payroll'), payrollController.updatePayrollRecord);
+router.delete('/payroll/records/:id', authenticate, authorize('Payroll'), payrollController.deletePayrollRecord);
+
+module.exports = router;
