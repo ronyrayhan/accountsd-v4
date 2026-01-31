@@ -44,6 +44,26 @@ const upload = multer({
     }
 });
 
+const uploadExcel = multer({
+    storage,
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+            'application/xml',
+            'text/csv',
+            'application/octet-stream'
+        ];
+        const ext = path.extname(file.originalname).toLowerCase();
+
+        if (allowedMimes.includes(file.mimetype) || ['.xlsx', '.xls', '.csv'].includes(ext)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Please select an Excel file (.xlsx or .xls)'));
+        }
+    }
+});
+
 // AUTH
 router.post('/login', [
     body('username').trim().notEmpty().withMessage('Username is required'),
@@ -69,10 +89,10 @@ router.delete('/transactions/:id', authenticate, authorize('Admin'), transaction
 router.get('/transactions/:id/history', authenticate, authorize(['Accounting', 'Ledger', 'Admin']), transactionController.getTransactionHistory);
 router.get('/transactions/template', authenticate, transactionController.downloadTemplate);
 router.get('/transactions/export', authenticate, authorize('Ledger'), transactionController.exportLedger);
-router.post('/transactions/preview', authenticate, authorize('Accounting'), upload.single('file'), transactionController.previewTransactions);
+router.post('/transactions/preview', authenticate, authorize('Accounting'), uploadExcel.single('file'), transactionController.previewTransactions);
 router.get('/transactions/account/:id', authenticate, authorize('Statements'), transactionController.getAccountStatement);
 router.get('/transactions/account/:id/download', authenticate, authorize('Statements'), transactionController.downloadAccountStatement);
-router.post('/transactions/import', authenticate, authorize('Accounting'), upload.single('file'), transactionController.importTransactions);
+router.post('/transactions/import', authenticate, authorize('Accounting'), uploadExcel.single('file'), transactionController.importTransactions);
 
 // SETTINGS
 router.get('/settings', authenticate, authorize('Settings'), settingController.getAllSettings);

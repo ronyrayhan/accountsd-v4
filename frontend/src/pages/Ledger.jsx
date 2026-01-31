@@ -13,14 +13,23 @@ const Ledger = () => {
     const [viewMode, setViewMode] = useState('classic'); // 'classic' or 'modern'
     const [selectedMonth, setSelectedMonth] = useState(null); // For modern view filtering
 
-    const [filters, setFilters] = useState({
-        startDate: '',
-        endDate: '',
-        accountId: '',
-        currency: '',
-        type: '',
-        search: ''
+    // Default to current month
+    const [filters, setFilters] = useState(() => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA'); // YYYY-MM-DD
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA');
+        return {
+            startDate: start,
+            endDate: end,
+            accountId: '',
+            currency: '',
+            type: '',
+            search: ''
+        };
     });
+
+    // Modern View Year Helper
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
     // Sorting state
     const [sortConfig, setSortConfig] = useState({
@@ -67,6 +76,34 @@ const Ledger = () => {
         fetchAccounts();
     }, []);
 
+    const availableYears = useMemo(() => {
+        const years = new Set([new Date().getFullYear()]);
+        transactions.forEach(t => {
+            const d = new Date(t.date);
+            if (!isNaN(d)) years.add(d.getFullYear());
+        });
+        return Array.from(years).sort((a, b) => b - a);
+    }, [transactions]);
+
+    const displayMonthValue = useMemo(() => {
+        if (!filters.startDate) return '';
+        // If starts on 1st and ends on last day -> it matches a full month
+        // We just simplify and use the startDate YYYY-MM
+        return filters.startDate.substring(0, 7);
+    }, [filters.startDate, filters.endDate]);
+
+    const handleMonthQuickFilter = (e) => {
+        const val = e.target.value; // YYYY-MM
+        if (!val) {
+            setFilters(prev => ({ ...prev, startDate: '', endDate: '' }));
+            return;
+        }
+        const [y, m] = val.split('-');
+        const start = new Date(y, m - 1, 1).toLocaleDateString('en-CA');
+        const end = new Date(y, m, 0).toLocaleDateString('en-CA');
+        setFilters(prev => ({ ...prev, startDate: start, endDate: end }));
+    };
+
     const sortedAndFilteredTransactions = useMemo(() => {
         let data = [...transactions];
         if (selectedMonth && viewMode === 'modern') {
@@ -105,8 +142,11 @@ const Ledger = () => {
             if (t.type === 'Credit') months[m].credit += amt;
             else months[m].debit += amt;
         });
-        return Object.entries(months).sort((a, b) => b[0].localeCompare(a[0]));
-    }, [transactions]);
+
+        // Filter by selectedYear for Modern View
+        const filteredEntries = Object.entries(months).filter(([key]) => key.startsWith(selectedYear));
+        return filteredEntries.sort((a, b) => b[0].localeCompare(a[0]));
+    }, [transactions, selectedYear]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -184,6 +224,27 @@ const Ledger = () => {
         >
             {viewMode === 'classic' ? (
                 <>
+                    {/* Month Filter (Outside Card) */}
+                    <div className="d-flex justify-content-end mb-3">
+                        <div className="d-flex align-items-center gap-2 bg-white p-2 rounded-3 shadow-sm border">
+                            <label className="text-muted small fw-bold text-uppercase mb-0 ms-1 me-1">
+                                <i className="fa-regular fa-calendar me-2"></i>Filter Month:
+                            </label>
+                            <input
+                                type="month"
+                                className="form-control form-control-sm border-0 bg-light"
+                                value={displayMonthValue}
+                                onChange={handleMonthQuickFilter}
+                                style={{ maxWidth: '160px' }}
+                            />
+                            {displayMonthValue && (
+                                <button className="btn btn-sm btn-link text-muted p-0 me-1" onClick={() => handleFilterChange({ target: { name: 'startDate', value: '' } })} title="Clear Month">
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Classic View: Filters & Table */}
                     <div className="card shadow-sm border-0 mb-4 rounded-4 overflow-hidden">
                         <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom-light">
@@ -284,9 +345,14 @@ const Ledger = () => {
                                     <div className="bg-primary rounded-circle p-2 me-3"><i className="fa-solid fa-chart-line text-white"></i></div>
                                     <h5 className="mb-0 fw-bold">Monthly Balances</h5>
                                 </div>
-                                <select className="form-select bg-dark border-secondary text-white rounded-3 mb-2" defaultValue="2024">
-                                    <option value="2024">Fiscal Year 2024</option>
-                                    <option value="2023">Fiscal Year 2023</option>
+                                <select
+                                    className="form-select bg-dark border-secondary text-white rounded-3 mb-2"
+                                    value={selectedYear}
+                                    onChange={(e) => setSelectedYear(e.target.value)}
+                                >
+                                    {availableYears.map(yr => (
+                                        <option key={yr} value={yr}>Fiscal Year {yr}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="p-2 flex-grow-1 overflow-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
@@ -302,11 +368,11 @@ const Ledger = () => {
                                         </div>
                                         <div className="row g-0 small opacity-75">
                                             <div className="col-6 border-end border-secondary border-opacity-25 ps-1">
-                                                <div className="text-uppercase x-small ls-1">Project Volume</div>
+                                                <div className="text-uppercase x-small ls-1">Total Credits</div>
                                                 <div className="fw-bold fs-7">৳ {data.credit.toLocaleString()}</div>
                                             </div>
                                             <div className="col-6 ps-3">
-                                                <div className="text-uppercase x-small ls-1">Revenue Share</div>
+                                                <div className="text-uppercase x-small ls-1">Total Debits</div>
                                                 <div className="fw-bold fs-7">৳ {data.debit.toLocaleString()}</div>
                                             </div>
                                         </div>

@@ -354,6 +354,7 @@ export const ImportTransactionsModal = ({ onImported }) => {
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [previewData, setPreviewData] = useState(null);
+    const [validationErrors, setValidationErrors] = useState([]);
 
     const handleDownloadTemplate = async () => {
         try {
@@ -376,6 +377,7 @@ export const ImportTransactionsModal = ({ onImported }) => {
         if (!file) return;
 
         setLoading(true);
+        setValidationErrors([]);
         const data = new FormData();
         data.append('file', file);
 
@@ -383,7 +385,11 @@ export const ImportTransactionsModal = ({ onImported }) => {
             const res = await api.post('/transactions/preview', data);
             setPreviewData(res.data);
         } catch (err) {
-            alert(err.response?.data?.detail || 'Error previewing data');
+            if (err.response?.data?.errors) {
+                setValidationErrors(err.response.data.errors);
+            } else {
+                alert(err.response?.data?.detail || 'Error previewing data');
+            }
         } finally {
             setLoading(false);
         }
@@ -410,6 +416,7 @@ export const ImportTransactionsModal = ({ onImported }) => {
     const resetModal = () => {
         setFile(null);
         setPreviewData(null);
+        setValidationErrors([]);
         setLoading(false);
     };
 
@@ -428,6 +435,20 @@ export const ImportTransactionsModal = ({ onImported }) => {
                                     <i className="fa-solid fa-circle-info me-2"></i>
                                     Download our official Excel template to ensure data compatibility.
                                 </div>
+
+                                {validationErrors.length > 0 && (
+                                    <div className="alert alert-danger mb-4">
+                                        <div className="d-flex align-items-center gap-2 mb-2">
+                                            <i className="fa-solid fa-triangle-exclamation"></i>
+                                            <div className="fw-bold">Validation Failed</div>
+                                        </div>
+                                        <ul className="mb-0 small ps-3">
+                                            {validationErrors.map((error, idx) => (
+                                                <li key={idx}>{error}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
 
                                 <div className="mb-4">
                                     <button className="btn btn-outline-primary w-100 py-3 d-flex align-items-center justify-content-center gap-2" onClick={handleDownloadTemplate}>
