@@ -67,6 +67,30 @@ const deleteAccount = async (req, res) => {
     }
 };
 
+const updateAccount = async (req, res) => {
+    try {
+        const { code, name, type, subtype } = req.body;
+        const account = await Account.findById(req.params.id);
+        if (!account) return res.status(404).json({ detail: 'Account not found' });
+
+        if (code && code !== account.code) {
+            const existing = await Account.findOne({ code });
+            if (existing) return res.status(400).json({ detail: 'Code already in use' });
+            account.code = code;
+        }
+
+        if (name) account.name = name;
+        if (type) account.type = type;
+        if (subtype) account.subtype = subtype;
+
+        await account.save();
+        await logEvent(req.user.username, 'Update Account', `Updated account details for ${account.name}`, 'admin');
+        res.json(account);
+    } catch (error) {
+        res.status(500).json({ detail: error.message });
+    }
+};
+
 const updateBalance = async (req, res) => {
     try {
         const { new_balance_bdt, new_balance_usd, reason } = req.body;
@@ -180,6 +204,7 @@ const recalculateBalances = async (req, res) => {
 module.exports = {
     getAccounts,
     createAccount,
+    updateAccount,
     deleteAccount,
     updateBalance,
     getAccountHistory,

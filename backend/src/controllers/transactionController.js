@@ -390,6 +390,38 @@ const updateTransaction = async (req, res) => {
     }
 };
 
+const deleteTransaction = async (req, res) => {
+    try {
+        const txn = await Transaction.findById(req.params.id);
+        if (!txn) {
+            return res.status(404).json({ detail: 'Transaction not found' });
+        }
+
+        // Authorization: Only Admins can delete transactions
+        if (req.user.role !== 'Admin') {
+            return res.status(403).json({ detail: "Only administrators can delete transactions." });
+        }
+
+        const accountId = txn.account_id;
+        const txnRef = txn.trx_id || `SR-${txn.serial_number}`;
+        const desc = txn.description;
+
+        await Transaction.findByIdAndDelete(req.params.id);
+
+        // Delete associated history and attachments (optional but good for cleanup)
+        await TransactionHistory.deleteMany({ transaction_id: req.params.id });
+
+        // Recalculate balance
+        await syncAccountBalance(accountId);
+
+        await logEvent(req.user.username, 'Delete Txn', `Deleted transaction ${txnRef}: ${desc}`, 'delete');
+
+        res.json({ message: 'Transaction deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ detail: error.message });
+    }
+};
+
 const getTransactionHistory = async (req, res) => {
     try {
         const txn = await Transaction.findById(req.params.id);
@@ -775,6 +807,7 @@ module.exports = {
     createTransaction,
     getTransactions,
     updateTransaction,
+    deleteTransaction,
     getTransactionHistory,
     downloadTemplate,
     previewTransactions,

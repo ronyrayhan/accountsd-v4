@@ -6,7 +6,16 @@ const UserSchema = new mongoose.Schema({
     hashed_password: { type: String, required: true },
     role: { type: String, enum: ['Admin', 'Accountant', 'Viewer'], default: 'Viewer' },
     is_active: { type: Boolean, default: true }
-}, { timestamps: true });
+}, {
+    timestamps: true,
+    toJSON: {
+        transform: function (doc, ret) {
+            delete ret.hashed_password;
+            return ret;
+        },
+        virtuals: true
+    }
+});
 
 const GlobalSettingSchema = new mongoose.Schema({
     key: { type: String, unique: true, required: true },

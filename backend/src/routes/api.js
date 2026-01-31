@@ -21,6 +21,7 @@ const authController = require('../controllers/authController');
 const reportController = require('../controllers/reportController');
 const settingController = require('../controllers/settingController');
 const summaryController = require('../controllers/summaryController');
+const hrController = require('../controllers/hrController');
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
@@ -54,6 +55,7 @@ router.get('/auth/me', authenticate, authController.getMe);
 // ACCOUNTS
 router.get('/accounts', authenticate, accountController.getAccounts);
 router.post('/accounts', authenticate, authorize('Accounting'), accountController.createAccount);
+router.put('/accounts/:id', authenticate, authorize('Admin'), accountController.updateAccount);
 router.delete('/accounts/:id', authenticate, authorize('Admin'), accountController.deleteAccount);
 router.post('/accounts/:id/balance', authenticate, authorize('Admin'), accountController.updateBalance);
 router.post('/accounts/recalculate', authenticate, authorize('Accounting'), accountController.recalculateBalances);
@@ -63,6 +65,7 @@ router.get('/accounts/:id/history', authenticate, authorize(['Accounting', 'Admi
 router.get('/transactions', authenticate, authorize('Ledger'), transactionController.getTransactions);
 router.post('/transactions', authenticate, authorize('Accounting'), upload.single('file'), transactionController.createTransaction);
 router.put('/transactions/:id', authenticate, authorize('Accounting'), transactionController.updateTransaction);
+router.delete('/transactions/:id', authenticate, authorize('Admin'), transactionController.deleteTransaction);
 router.get('/transactions/:id/history', authenticate, authorize(['Accounting', 'Ledger', 'Admin']), transactionController.getTransactionHistory);
 router.get('/transactions/template', authenticate, transactionController.downloadTemplate);
 router.get('/transactions/export', authenticate, authorize('Ledger'), transactionController.exportLedger);
@@ -142,6 +145,14 @@ router.post('/assets/:id/assign', authenticate, authorize('Admin'), assetControl
 router.post('/assets/:id/return', authenticate, authorize('Admin'), assetController.returnAsset);
 router.delete('/assets/:id', authenticate, authorize('Admin'), assetController.deleteAsset);
 
+// HR MANAGEMENT (ADDON)
+router.get('/hr/attendance', authenticate, authorize(['HR', 'Admin']), hrController.getAttendance);
+router.post('/hr/attendance', authenticate, authorize(['HR', 'Admin']), hrController.saveAttendance);
+router.post('/hr/attendance/bulk', authenticate, authorize(['HR', 'Admin']), hrController.bulkAttendance);
+router.get('/hr/leaves', authenticate, authorize(['HR', 'Admin', 'Dashboard']), hrController.getLeaves);
+router.post('/hr/leaves', authenticate, authorize(['HR', 'Admin', 'Dashboard']), hrController.createLeave);
+router.patch('/hr/leaves/:id/status', authenticate, authorize(['HR', 'Admin']), hrController.updateLeaveStatus);
+
 // SUMMARIES (ADDON)
 router.get('/summaries/daily', authenticate, summaryController.getDailySummaries);
 router.get('/summaries/monthly', authenticate, summaryController.getMonthlySummaries);
@@ -158,10 +169,16 @@ router.post('/summaries/sync', authenticate, authorize('Admin'), async (req, res
 
 // SECURE FILE SERVING
 router.get('/files/:filename', authenticate, (req, res) => {
-    const filename = req.params.filename;
-    const safePath = path.join(__dirname, '../../uploads', filename);
+    const filename = path.basename(req.params.filename); // Prevent Directory Traversal
+    const uploadDir = path.join(__dirname, '../../uploads');
+    const safePath = path.join(uploadDir, filename);
 
-    // Check if file exists and is within the uploads directory
+    // Ensure the resolved path is actually inside the uploads directory
+    if (!safePath.startsWith(uploadDir)) {
+        return res.status(403).json({ detail: 'Access denied' });
+    }
+
+    // Check if file exists
     if (fs.existsSync(safePath)) {
         res.sendFile(safePath);
     } else {

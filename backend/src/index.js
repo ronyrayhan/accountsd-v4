@@ -80,8 +80,13 @@ app.use((err, req, res, next) => {
     }
 
     console.error(err.stack);
-    res.status(err.status || 500).json({
-        detail: err.message || 'Internal Server Error'
+    const status = err.status || 500;
+    const message = (status === 500 && process.env.NODE_ENV === 'production')
+        ? 'Internal Server Error'
+        : (err.message || 'Internal Server Error');
+
+    res.status(status).json({
+        detail: message
     });
 });
 

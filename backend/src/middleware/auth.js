@@ -2,7 +2,11 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 
-const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+const SECRET_KEY = process.env.JWT_SECRET;
+if (!SECRET_KEY) {
+    console.error("FATAL ERROR: JWT_SECRET is not defined.");
+    process.exit(1);
+}
 
 const hashPassword = async (password) => {
     return await bcrypt.hash(password, 10);
