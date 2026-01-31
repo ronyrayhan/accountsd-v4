@@ -20,7 +20,10 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(mongoSanitize());
-app.use(cors());
+app.use(cors({
+    origin: ['https://accountsd-v4-o2li.vercel.app', 'https://accountsd-v4.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+    credentials: true
+}));
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -38,7 +41,13 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use('/uploads', authenticate, express.static(path.join(__dirname, '../uploads')));
 
 // Routes
-app.use('/api', apiRoutes);
+// In Vercel, the 'api/' folder handles exactly root + /api
+// Locally we use /api standard
+if (process.env.VERCEL) {
+    app.use('/', apiRoutes);
+} else {
+    app.use('/api', apiRoutes);
+}
 
 // Global Error Handler
 app.use((err, req, res, next) => {

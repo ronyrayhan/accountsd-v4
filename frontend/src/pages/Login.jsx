@@ -48,6 +48,7 @@ const Login = () => {
                             onChange={(e) => setUsername(e.target.value)}
                             required
                             placeholder="e.g. admin"
+                            autoComplete="username"
                         />
                     </div>
                     <div className="mb-5">
@@ -59,6 +60,7 @@ const Login = () => {
                             onChange={(e) => setPassword(e.target.value)}
                             required
                             placeholder="••••••••"
+                            autoComplete="current-password"
                         />
                     </div>
                     <button type="submit" className="btn btn-primary w-100 py-3 mb-3">
