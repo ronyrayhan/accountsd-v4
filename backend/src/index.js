@@ -41,7 +41,7 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use('/uploads', authenticate, express.static(path.join(__dirname, '../uploads')));
 
 // Health Check (Public)
-app.get('/api/health', async (req, res) => {
+const healthCheck = async (req, res) => {
     const mongoose = require('mongoose');
     const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
     res.json({
@@ -50,10 +50,14 @@ app.get('/api/health', async (req, res) => {
         environment: process.env.VERCEL ? 'vercel' : 'local',
         timestamp: new Date().toISOString()
     });
-});
+};
+
+app.get('/api/health', healthCheck);
+app.get('/health', healthCheck);
 
 // Routes
 app.use('/api', apiRoutes);
+app.use('/', apiRoutes); // Fail-safe for Vercel
 
 // Global Error Handler
 app.use((err, req, res, next) => {
