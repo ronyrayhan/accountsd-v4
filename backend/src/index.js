@@ -40,6 +40,18 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 // Protected Static Files
 app.use('/uploads', authenticate, express.static(path.join(__dirname, '../uploads')));
 
+// Health Check (Public)
+app.get('/api/health', async (req, res) => {
+    const mongoose = require('mongoose');
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    res.json({
+        status: 'ok',
+        database: dbStatus,
+        environment: process.env.VERCEL ? 'vercel' : 'local',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Routes
 // In Vercel, the 'api/' folder handles exactly root + /api
 // Locally we use /api standard
