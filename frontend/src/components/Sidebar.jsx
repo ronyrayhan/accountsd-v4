@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import './Sidebar.css'; 
+import './Sidebar.css';
 
 const Sidebar = () => {
     const { user, logout } = useAuth();
@@ -13,7 +13,7 @@ const Sidebar = () => {
 
     return (
         <nav id="sidebar" className={isCollapsed ? 'collapsed' : ''}>
-            
+
             {/* Toggle Button (Floating on the edge) */}
             <button className="toggle-btn" onClick={toggleSidebar}>
                 <i className={`fa-solid ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'}`}></i>
@@ -22,7 +22,7 @@ const Sidebar = () => {
             {/* Brand */}
             <div className="sidebar-brand">
                 <i className="fa-solid fa-rocket text-primary fs-3"></i>
-                <span>AccountsD</span>
+                <span className="text-truncate">{user?.settings?.site_brand || 'AccountsD'}</span>
             </div>
 
             {/* Navigation Menu */}

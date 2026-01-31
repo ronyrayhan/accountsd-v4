@@ -3,10 +3,26 @@ import axios from 'axios';
 const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const api = axios.create({ baseURL });
 
-// Helper to get image/doc full path from relative filename
+// Helper to securely fetch and view a file
+export const viewFile = async (filename) => {
+    try {
+        const response = await api.get(`/files/${filename}`, {
+            responseType: 'blob'
+        });
+        const contentType = response.headers['content-type'];
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: contentType }));
+        window.open(url, '_blank');
+        // Clean up the URL object after some time to free memory
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+        console.error('Could not view file:', err);
+        alert('Access denied or file not found.');
+    }
+};
+
+// Legacy helper (deprecated due to security)
 export const getUploadUrl = (filename) => {
-    const root = baseURL.endsWith('/api') ? baseURL.replace('/api', '') : baseURL;
-    return `${root}/uploads/${filename}`;
+    return '#'; // No longer direct link
 };
 
 /**

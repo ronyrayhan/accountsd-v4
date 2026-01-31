@@ -57,6 +57,15 @@ const syncAccountBalance = async (accountId) => {
     account.current_balance_bdt = bdt;
     account.current_balance_usd = usd;
     await account.save();
+
+    // Automatic Summary Update (Addon Module)
+    try {
+        const { syncSummaries } = require('./summaryController');
+        // We sync for the current date. For imports, the import loop handles other dates if needed.
+        await syncSummaries(accountId, new Date());
+    } catch (e) {
+        // Module might be removed, ignore
+    }
 };
 
 const createTransaction = async (req, res) => {

@@ -169,9 +169,27 @@ const getStats = async (req, res) => {
 const getSystemLogs = async (req, res) => {
     try {
         const { SystemLog } = require('../models');
-        const logs = await SystemLog.find()
-            .sort({ timestamp: -1 })
-            .limit(300);
+        const { startDate, endDate, limit } = req.query;
+
+        let query = {};
+        if (startDate || endDate) {
+            query.timestamp = {};
+            if (startDate) query.timestamp.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.timestamp.$lte = end;
+            }
+        }
+
+        let mongoQuery = SystemLog.find(query).sort({ timestamp: -1 });
+
+        // Default limit is 300, but can be overridden by 'all' or a specific number
+        if (limit !== 'all') {
+            mongoQuery = mongoQuery.limit(parseInt(limit) || 300);
+        }
+
+        const logs = await mongoQuery;
 
         const mapped = logs.map(l => ({
             time: l.timestamp,

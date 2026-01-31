@@ -75,9 +75,23 @@ const authorize = (moduleOrRoles = []) => {
             return next();
         }
 
-        // 2. Check if any item in the list matches a 'Module Permission' in the Database
-        const { RolePermission } = require('../models');
+        // 2. Check if any item in the list matches an 'Individual Permission' or 'Role Permission' in the Database
+        const { RolePermission, IndividualModulePermission } = require('../models');
         for (const moduleName of items) {
+            // Check Individual Override First (Granular)
+            const indPermission = await IndividualModulePermission.findOne({
+                user_id: req.user._id,
+                module: moduleName
+            });
+
+            if (indPermission) {
+                if (indPermission.can_access) return next();
+                // If individual permission explicitly says FALSE, we don't fall back to role for THIS module
+                // but we continue checking other modules in the 'items' list.
+                continue;
+            }
+
+            // Fallback to Role Permission (Default)
             const permission = await RolePermission.findOne({
                 role: userRole,
                 module: moduleName

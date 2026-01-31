@@ -1,4 +1,4 @@
-const { User, RolePermission, AccountPermission, Account } = require('../models');
+const { User, RolePermission, AccountPermission, Account, GlobalSetting, IndividualModulePermission, IndividualAccountPermission } = require('../models');
 const { hashPassword, comparePassword, createToken } = require('../middleware/auth');
 const { logEvent } = require('../utils/logger');
 
@@ -39,10 +39,15 @@ const getMe = async (req, res) => {
     try {
         let permissions = [];
         if (req.user.role === 'Admin') {
-            const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll'];
-            permissions = modules.map(m => ({ module: m, can_access: true }));
+            const modulesList = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'Assets'];
+            permissions = modulesList.map(m => ({ module: m, can_access: true }));
         } else {
-            permissions = await RolePermission.find({ role: req.user.role });
+            const rolePerms = await RolePermission.find({ role: req.user.role });
+            const indPerms = await IndividualModulePermission.find({ user_id: req.user._id });
+            const mergedMap = {};
+            rolePerms.forEach(p => mergedMap[p.module] = p.can_access);
+            indPerms.forEach(p => mergedMap[p.module] = p.can_access);
+            permissions = Object.keys(mergedMap).map(m => ({ module: m, can_access: mergedMap[m] }));
         }
 
         const canAccess = (moduleName) => {
@@ -54,19 +59,24 @@ const getMe = async (req, res) => {
         // Server-defined UI structure (The Menu)
         const menuGroups = [
             {
-                title: 'Menu',
+                title: 'Main Menu',
                 items: [
                     { module: 'Dashboard', label: 'Dashboard', path: '/', icon: 'fa-solid fa-house' },
                     { module: 'Ledger', label: 'Transaction Ledger', path: '/ledger', icon: 'fa-solid fa-receipt' },
                     { module: 'Reports', label: 'Analytics', path: '/reports', icon: 'fa-solid fa-chart-pie' },
-                    { module: 'Billing', label: 'Billing & Payables', path: '/billing', icon: 'fa-solid fa-file-invoice-dollar' },
-                    { module: 'Payroll', label: 'Employee Payroll', path: '/payroll', icon: 'fa-solid fa-people-group' }
+                    { module: 'Billing', label: 'Billing & Payables', path: '/billing', icon: 'fa-solid fa-file-invoice-dollar' }
+                ]
+            },
+            {
+                title: 'Operations',
+                items: [
+                    { module: 'Payroll', label: 'HR & Payroll', path: '/payroll', icon: 'fa-solid fa-people-group' },
+                    { module: 'Assets', label: 'Asset Tracking', path: '/assets', icon: 'fa-solid fa-boxes-stacked' }
                 ]
             },
             {
                 title: 'System',
                 items: [
-                    { module: 'Users', label: 'User Management', path: '/users', icon: 'fa-solid fa-users-gear' },
                     { module: 'Settings', label: 'Settings', path: '/settings', icon: 'fa-solid fa-gears' },
                     { module: 'AuditTrail', label: 'Audit Trail', path: '/logs', icon: 'fa-solid fa-shield-halved', adminOnly: true }
                 ]
@@ -95,6 +105,10 @@ const getMe = async (req, res) => {
             isAdmin: req.user.role === 'Admin'
         };
 
+        const settingsList = await GlobalSetting.find({});
+        const settings = {};
+        settingsList.forEach(s => settings[s.key] = s.value);
+
         res.json({
             id: req.user.id,
             username: req.user.username,
@@ -102,7 +116,8 @@ const getMe = async (req, res) => {
             is_active: req.user.is_active,
             navigation: navigation,
             capabilities: capabilities,
-            modules: permissions.filter(p => p.can_access === true || p.can_access === 1).map(p => p.module)
+            modules: permissions.filter(p => p.can_access === true || p.can_access === 1).map(p => p.module),
+            settings
         });
     } catch (error) {
         res.status(500).json({ detail: error.message });
@@ -216,6 +231,45 @@ const updateAccountPermissions = async (req, res) => {
     }
 };
 
+const getIndividualPermissions = async (req, res) => {
+    try {
+        const [modPerms, accPerms] = await Promise.all([
+            IndividualModulePermission.find(),
+            IndividualAccountPermission.find()
+        ]);
+        res.json({ modulePermissions: modPerms, accountPermissions: accPerms });
+    } catch (error) {
+        res.status(500).json({ detail: error.message });
+    }
+};
+
+const updateIndividualPermission = async (req, res) => {
+    try {
+        const { userId, type, target, canAccess } = req.body; // type: 'module' or 'account'
+
+        if (type === 'module') {
+            await IndividualModulePermission.findOneAndUpdate(
+                { user_id: userId, module: target },
+                { can_access: canAccess },
+                { upsert: true }
+            );
+        } else if (type === 'account') {
+            await IndividualAccountPermission.findOneAndUpdate(
+                { user_id: userId, account_id: target },
+                { can_access: canAccess },
+                { upsert: true }
+            );
+        }
+
+        const targetUser = await User.findById(userId);
+        await logEvent(req.user.username, 'Individual Permission Update', `Updated ${type} access for user ${targetUser?.username || userId}: ${target} -> ${canAccess}`, 'admin');
+
+        res.json({ message: 'Update successful' });
+    } catch (error) {
+        res.status(500).json({ detail: error.message });
+    }
+};
+
 module.exports = {
     login,
     getMe,
@@ -225,5 +279,7 @@ module.exports = {
     getPermissions,
     updatePermissions,
     getAccountPermissions,
-    updateAccountPermissions
+    updateAccountPermissions,
+    getIndividualPermissions,
+    updateIndividualPermission
 };

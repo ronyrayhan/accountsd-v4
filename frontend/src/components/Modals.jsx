@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api, { getUploadUrl } from '../api/axios';
+import api from '../api/axios';
 
 export const AccountModal = ({ onAccountCreated }) => {
     const [formData, setFormData] = useState({
@@ -206,12 +206,38 @@ export const TransactionModal = ({ accounts, onTransactionCreated }) => {
 };
 
 export const ViewAttachmentModal = ({ item, onClose }) => {
+    const [blobUrl, setBlobUrl] = useState(null);
+    const [isPdf, setIsPdf] = useState(false);
+
+    useEffect(() => {
+        if (!item) return;
+        const attachment = item.attachments?.[0];
+        if (!attachment) return;
+
+        const fetchFile = async () => {
+            try {
+                const response = await api.get(`/files/${attachment.filename}`, {
+                    responseType: 'blob'
+                });
+                const contentType = response.headers['content-type'];
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: contentType }));
+                setBlobUrl(url);
+                setIsPdf(attachment.filename.toLowerCase().endsWith('.pdf'));
+            } catch (err) {
+                console.error('Error fetching file:', err);
+            }
+        };
+
+        fetchFile();
+
+        return () => {
+            if (blobUrl) window.URL.revokeObjectURL(blobUrl);
+        };
+    }, [item]);
+
     if (!item) return null;
     const attachment = item.attachments?.[0];
     if (!attachment) return null;
-
-    const fileUrl = getUploadUrl(attachment.filename);
-    const isPdf = attachment.filename.toLowerCase().endsWith('.pdf');
 
     // Logic to unify Bill vs Transaction data display
     const isBill = !!item.company_name;
@@ -227,20 +253,20 @@ export const ViewAttachmentModal = ({ item, onClose }) => {
                         {/* Left Side: Dynamic Details Pane */}
                         <div className="col-lg-4 bg-white p-5 border-end d-flex flex-column">
                             <div className="p-4 rounded-4" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                                <h4 className="fw-bold mb-4 text-dark" style={{ letterSpacing: '-0.5px' }}>Invoice Details</h4>
+                                <h4 className="fw-bold mb-4 text-dark" style={{ letterSpacing: '-0.5px' }}>Document Details</h4>
 
                                 <div className="mb-4">
-                                    <label className="text-muted small fw-bold text-uppercase d-block mb-1" style={{ fontSize: '0.65rem' }}>Invoice No</label>
-                                    <div className="h5 fw-bold text-primary mb-0">{item.serial_number || `#${item.id}`}</div>
+                                    <label className="text-muted small fw-bold text-uppercase d-block mb-1" style={{ fontSize: '0.65rem' }}>System Ref</label>
+                                    <div className="h5 fw-bold text-primary mb-0">{item.serial_number || item.trx_id || `#${item.id}`}</div>
                                 </div>
 
                                 <div className="mb-4">
-                                    <label className="text-muted small fw-bold text-uppercase d-block mb-1" style={{ fontSize: '0.65rem' }}>Account Name</label>
+                                    <label className="text-muted small fw-bold text-uppercase d-block mb-1" style={{ fontSize: '0.65rem' }}>Account/Payee</label>
                                     <div className="fw-bold text-dark">{displayName}</div>
                                 </div>
 
                                 <div className="mb-4">
-                                    <label className="text-muted small fw-bold text-uppercase d-block mb-1" style={{ fontSize: '0.65rem' }}>Account ID</label>
+                                    <label className="text-muted small fw-bold text-uppercase d-block mb-1" style={{ fontSize: '0.65rem' }}>Code</label>
                                     <div className="fw-bold text-dark">{displayCode}</div>
                                 </div>
 
@@ -271,7 +297,7 @@ export const ViewAttachmentModal = ({ item, onClose }) => {
                             </div>
                             <div className="mt-auto text-center">
                                 <span className="badge bg-light text-muted border px-3 py-2 rounded-pill x-small">
-                                    System Verification Stamp: {new Date().toLocaleDateString()}
+                                    Secure Verification: {new Date().toLocaleDateString()}
                                 </span>
                             </div>
                         </div>
@@ -281,32 +307,39 @@ export const ViewAttachmentModal = ({ item, onClose }) => {
                             <div className="modal-header border-0 bg-white px-4 py-3 shadow-sm d-flex justify-content-between align-items-center">
                                 <div className="d-flex align-items-center gap-3">
                                     <div className="bg-primary bg-opacity-10 p-2 rounded-circle text-primary d-flex align-items-center justify-content-center" style={{ width: 40, height: 40 }}>
-                                        <i className="fa-solid fa-file-invoice"></i>
+                                        <i className="fa-solid fa-file-shield"></i>
                                     </div>
                                     <div>
-                                        <div className="fw-bold text-dark small">Attachment: {attachment.filename}</div>
-                                        <div className="text-muted x-small">Original Source Document</div>
+                                        <div className="fw-bold text-dark small">Protected Attachment: {attachment.filename}</div>
+                                        <div className="text-muted x-small">End-to-End Encrypted Preview</div>
                                     </div>
                                 </div>
                                 <button type="button" className="btn-close shadow-none" onClick={onClose}></button>
                             </div>
 
                             <div className="flex-fill d-flex justify-content-center align-items-center p-4">
-                                {isPdf ? (
+                                {!blobUrl ? (
+                                    <div className="text-center">
+                                        <div className="spinner-border text-primary mb-2"></div>
+                                        <div className="text-muted small fw-bold">Authorizing...</div>
+                                    </div>
+                                ) : isPdf ? (
                                     <div className="w-100 h-100 bg-white rounded-4 shadow-sm overflow-hidden" style={{ border: '1px solid #e2e8f0' }}>
-                                        <iframe src={fileUrl} className="w-100 h-100" style={{ border: 'none' }} title="Document Viewer"></iframe>
+                                        <iframe src={blobUrl} className="w-100 h-100" style={{ border: 'none' }} title="Document Viewer"></iframe>
                                     </div>
                                 ) : (
                                     <div className="p-2 bg-white rounded-4 shadow-sm border">
-                                        <img src={fileUrl} alt="Attachment" className="img-fluid rounded-3" style={{ maxHeight: '65vh', maxWidth: '100%', objectFit: 'contain' }} />
+                                        <img src={blobUrl} alt="Attachment" className="img-fluid rounded-3" style={{ maxHeight: '65vh', maxWidth: '100%', objectFit: 'contain' }} />
                                     </div>
                                 )}
                             </div>
 
                             <div className="modal-footer border-0 bg-white px-4 py-3 gap-2 shadow-sm mt-auto">
-                                <a href={fileUrl} download={attachment.filename} className="btn btn-primary px-4 py-2 fw-bold shadow-sm rounded-3" target="_blank" rel="noreferrer">
-                                    <i className="fa-solid fa-download me-2"></i> Download
-                                </a>
+                                {blobUrl && (
+                                    <a href={blobUrl} download={attachment.filename} className="btn btn-primary px-4 py-2 fw-bold shadow-sm rounded-3">
+                                        <i className="fa-solid fa-download me-2"></i> Download Securely
+                                    </a>
+                                )}
                                 <button type="button" className="btn btn-outline-secondary px-4 py-2 fw-bold rounded-3" onClick={onClose}>Close Preview</button>
                             </div>
                         </div>

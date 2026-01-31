@@ -27,7 +27,20 @@ const setSetting = async (req, res) => {
     }
 };
 
+const getAllSettings = async (req, res) => {
+    try {
+        const settings = await GlobalSetting.find({});
+        const result = {};
+        settings.forEach(s => result[s.key] = s.value);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ detail: error.message });
+    }
+};
+
 module.exports = {
     getSetting,
-    setSetting
+    setSetting,
+    getAllSettings
 };
+

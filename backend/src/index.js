@@ -20,7 +20,17 @@ app.set('trust proxy', 1);
 
 // Security Middleware
 app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" }
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+            imgSrc: ["'self'", "data:", "blob:", "http://localhost:5000"],
+            connectSrc: ["'self'", "http://localhost:5000", "ws://localhost:5173"]
+        }
+    }
 }));
 app.use(mongoSanitize());
 app.use(cors({
@@ -40,8 +50,8 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10kb' })); // Limit body size
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Protected Static Files
-app.use('/uploads', authenticate, express.static(path.join(__dirname, '../uploads')));
+// Static Files removed from public access for security.
+// They are now served via the authenticated /api/files/:filename route.
 
 // Health Check (Public)
 const healthCheck = async (req, res) => {
@@ -64,9 +74,14 @@ app.use('/', apiRoutes); // Fail-safe for Vercel
 
 // Global Error Handler
 app.use((err, req, res, next) => {
+    // Return 400 for specific file type validation errors
+    if (err.message === 'Please Select correct file type') {
+        return res.status(400).json({ detail: err.message });
+    }
+
     console.error(err.stack);
     res.status(err.status || 500).json({
-        detail: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : err.message
+        detail: err.message || 'Internal Server Error'
     });
 });
 
@@ -103,7 +118,7 @@ const setupDB = async () => {
 
         // Seed Default Role Permissions
         const roles = ['Accountant', 'Viewer'];
-        const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll'];
+        const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'HR', 'Assets'];
 
         for (const role of roles) {
             for (const module of modules) {

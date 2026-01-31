@@ -8,20 +8,15 @@ import Ledger from './pages/Ledger';
 import Reports from './pages/Reports';
 import Logs from './pages/Logs';
 import AccountStatement from './pages/AccountStatement';
-import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Billing from './pages/Billing';
 import Payroll from './pages/Payroll';
+import AccountSummaries from './pages/AccountSummaries';
+import AssetTracking from './pages/AssetTracking';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './index.css';
 
-/**
- * Main Application Routing
- * - Uses React Router for navigation.
- * - Wraps pages in 'ProtectedRoute' to ensure only authorized users access them.
- * - 'module' prop in ProtectedRoute checks specific permissions (e.g., 'Ledger').
- */
 function App() {
   return (
     <AuthProvider>
@@ -74,14 +69,6 @@ function App() {
             }
           />
 
-          <Route
-            path="/users"
-            element={
-              <ProtectedRoute module="Users">
-                <Users />
-              </ProtectedRoute>
-            }
-          />
 
           <Route
             path="/settings"
@@ -100,11 +87,28 @@ function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/payroll"
             element={
               <ProtectedRoute module="Payroll">
                 <Payroll />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assets"
+            element={
+              <ProtectedRoute module="Assets">
+                <AssetTracking />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/summaries"
+            element={
+              <ProtectedRoute module="Reports">
+                <AccountSummaries />
               </ProtectedRoute>
             }
           />

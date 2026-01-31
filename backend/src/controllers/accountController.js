@@ -9,13 +9,17 @@ const getAccounts = async (req, res) => {
             return res.json(accounts);
         }
 
-        const allowedLinks = await AccountPermission.find({
-            role: req.user.role,
-            can_access: true
-        });
-        const allowedIds = allowedLinks.map(l => l.account_id.toString());
+        const { AccountPermission, IndividualAccountPermission } = require('../models');
+        const [rolePerms, indPerms] = await Promise.all([
+            AccountPermission.find({ role: req.user.role }),
+            IndividualAccountPermission.find({ user_id: req.user._id })
+        ]);
 
-        const filtered = accounts.filter(acc => allowedIds.includes(acc._id.toString()));
+        const mergedMap = {};
+        rolePerms.forEach(p => mergedMap[p.account_id.toString()] = p.can_access);
+        indPerms.forEach(p => mergedMap[p.account_id.toString()] = p.can_access);
+
+        const filtered = accounts.filter(acc => mergedMap[acc._id.toString()] === true);
         res.json(filtered);
     } catch (error) {
         res.status(500).json({ detail: error.message });
@@ -98,13 +102,28 @@ const getAccountHistory = async (req, res) => {
         const { id } = req.params;
 
         if (req.user.role !== 'Admin') {
-            const hasAccess = await AccountPermission.findOne({
-                role: req.user.role,
-                account_id: id,
-                can_access: true
+            const { AccountPermission, IndividualAccountPermission } = require('../models');
+
+            // Check individual override first
+            const indAccess = await IndividualAccountPermission.findOne({
+                user_id: req.user._id,
+                account_id: id
             });
-            if (!hasAccess) {
-                return res.status(403).json({ detail: "You do not have permission to view this account's history." });
+
+            if (indAccess) {
+                if (!indAccess.can_access) {
+                    return res.status(403).json({ detail: "You do not have permission to view this account's history." });
+                }
+            } else {
+                // Fallback to Role
+                const roleAccess = await AccountPermission.findOne({
+                    role: req.user.role,
+                    account_id: id,
+                    can_access: true
+                });
+                if (!roleAccess) {
+                    return res.status(403).json({ detail: "You do not have permission to view this account's history." });
+                }
             }
         }
 

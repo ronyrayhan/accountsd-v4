@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { DailySummary, MonthlySummary } = require('./Summary');
 
 const UserSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
@@ -111,6 +112,20 @@ const AccountPermissionSchema = new mongoose.Schema({
 });
 AccountPermissionSchema.index({ role: 1, account_id: 1 }, { unique: true });
 
+const IndividualModulePermissionSchema = new mongoose.Schema({
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    module: { type: String, required: true },
+    can_access: { type: Boolean, default: false }
+});
+IndividualModulePermissionSchema.index({ user_id: 1, module: 1 }, { unique: true });
+
+const IndividualAccountPermissionSchema = new mongoose.Schema({
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    account_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
+    can_access: { type: Boolean, default: true }
+});
+IndividualAccountPermissionSchema.index({ user_id: 1, account_id: 1 }, { unique: true });
+
 const BillSchema = new mongoose.Schema({
     invoice_date: { type: Date, default: Date.now },
     due_date: { type: Date, required: true },
@@ -141,7 +156,9 @@ const EmployeeSchema = new mongoose.Schema({
     joining_date: { type: Date, required: true },
     employment_type: { type: String, enum: ['Full-time', 'Contract', 'Intern'], default: 'Full-time' },
     base_salary: { type: Number, default: 0 },
-    status: { type: String, enum: ['Active', 'On Hold', 'Exit'], default: 'Active' }
+    status: { type: String, enum: ['Active', 'On Hold', 'Exit'], default: 'Active' },
+    email: { type: String },
+    phone: { type: String }
 }, { timestamps: true });
 
 EmployeeSchema.virtual('increments', {
@@ -149,6 +166,63 @@ EmployeeSchema.virtual('increments', {
     localField: '_id',
     foreignField: 'employee_id'
 });
+
+const AttendanceSchema = new mongoose.Schema({
+    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+    date: { type: Date, required: true },
+    check_in: { type: String }, // HH:mm
+    check_out: { type: String },
+    status: { type: String, enum: ['Present', 'Late', 'Absent', 'Half-Day'], default: 'Present' },
+    remarks: { type: String }
+}, { timestamps: true });
+AttendanceSchema.index({ employee_id: 1, date: 1 }, { unique: true });
+
+const LeaveSchema = new mongoose.Schema({
+    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+    leave_type: { type: String, enum: ['Casual', 'Sick', 'Annual', 'Unpaid'], required: true },
+    start_date: { type: Date, required: true },
+    end_date: { type: Date, required: true },
+    total_days: { type: Number },
+    reason: { type: String },
+    status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
+    approved_by: { type: String }
+}, { timestamps: true });
+
+const AssetSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    category: { type: String, default: 'Electronics' },
+    serial_number: { type: String, unique: true, sparse: true },
+    status: { type: String, enum: ['Available', 'In Use', 'Repair', 'Retired'], default: 'Available' },
+    assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+    purchase_date: { type: Date },
+    purchase_value: { type: Number },
+    purchased_from: { type: String },
+    invoice_image: { type: String }, // Path to uploaded file
+    specs: { type: String },
+    room_number: { type: String }, // For office location tracking
+    is_fixed: { type: Boolean, default: false } // true for room-fixed, false for employee-carry
+}, { timestamps: true });
+
+AssetSchema.virtual('history', {
+    ref: 'AssetHistory',
+    localField: '_id',
+    foreignField: 'asset_id'
+});
+
+const AssetCategorySchema = new mongoose.Schema({
+    name: { type: String, required: true, unique: true },
+    description: { type: String }
+}, { timestamps: true });
+
+const AssetHistorySchema = new mongoose.Schema({
+    asset_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Asset' }, // null if asset is deleted
+    asset_name: { type: String }, // Store name for when asset is deleted
+    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' }, // null if unassigned
+    action: { type: String, enum: ['Assigned', 'Unassigned', 'Retired', 'Returned', 'Transferred', 'Modified', 'Deleted', 'Relocated'], required: true },
+    performed_by: { type: String },
+    date: { type: Date, default: Date.now },
+    notes: { type: String }
+}, { timestamps: true });
 
 const IncrementSchema = new mongoose.Schema({
     employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
@@ -194,7 +268,9 @@ const schemaOptions = {
 // Add virtuals and set options for each schema
 [UserSchema, GlobalSettingSchema, AccountSchema, TransactionSchema, AttachmentSchema,
     TransactionHistorySchema, AccountHistorySchema, RolePermissionSchema, AccountPermissionSchema,
-    BillSchema, EmployeeSchema, IncrementSchema, PayrollRecordSchema, SystemLogSchema, CounterSchema].forEach(schema => {
+    IndividualModulePermissionSchema, IndividualAccountPermissionSchema,
+    BillSchema, EmployeeSchema, IncrementSchema, PayrollRecordSchema, SystemLogSchema, CounterSchema,
+    AttendanceSchema, LeaveSchema, AssetSchema].forEach(schema => {
         schema.virtual('id').get(function () {
             return this._id.toHexString();
         });
@@ -211,11 +287,18 @@ const TransactionHistory = mongoose.model('TransactionHistory', TransactionHisto
 const AccountHistory = mongoose.model('AccountHistory', AccountHistorySchema);
 const RolePermission = mongoose.model('RolePermission', RolePermissionSchema);
 const AccountPermission = mongoose.model('AccountPermission', AccountPermissionSchema);
+const IndividualModulePermission = mongoose.model('IndividualModulePermission', IndividualModulePermissionSchema);
+const IndividualAccountPermission = mongoose.model('IndividualAccountPermission', IndividualAccountPermissionSchema);
 const Bill = mongoose.model('Bill', BillSchema);
 const Employee = mongoose.model('Employee', EmployeeSchema);
 const Increment = mongoose.model('Increment', IncrementSchema);
 const PayrollRecord = mongoose.model('PayrollRecord', PayrollRecordSchema);
 const SystemLog = mongoose.model('SystemLog', SystemLogSchema);
+const Attendance = mongoose.model('Attendance', AttendanceSchema);
+const Leave = mongoose.model('Leave', LeaveSchema);
+const Asset = mongoose.model('Asset', AssetSchema);
+const AssetCategory = mongoose.model('AssetCategory', AssetCategorySchema);
+const AssetHistory = mongoose.model('AssetHistory', AssetHistorySchema);
 
 module.exports = {
     User,
@@ -227,10 +310,19 @@ module.exports = {
     AccountHistory,
     RolePermission,
     AccountPermission,
+    IndividualModulePermission,
+    IndividualAccountPermission,
     Bill,
     Employee,
     Increment,
     PayrollRecord,
     SystemLog,
-    Counter
+    Counter,
+    DailySummary,
+    MonthlySummary,
+    Attendance,
+    Leave,
+    Asset,
+    AssetCategory,
+    AssetHistory
 };

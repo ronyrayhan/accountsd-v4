@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { authenticate, authorize } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 
@@ -19,6 +20,7 @@ const transactionController = require('../controllers/transactionController');
 const authController = require('../controllers/authController');
 const reportController = require('../controllers/reportController');
 const settingController = require('../controllers/settingController');
+const summaryController = require('../controllers/summaryController');
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
@@ -29,7 +31,17 @@ const storage = multer.diskStorage({
         cb(null, `${Date.now()}_${file.originalname}`);
     }
 });
-const upload = multer({ storage });
+const upload = multer({
+    storage,
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Please Select correct file type'));
+        }
+    }
+});
 
 // AUTH
 router.post('/login', [
@@ -60,6 +72,7 @@ router.get('/transactions/account/:id/download', authenticate, authorize('Statem
 router.post('/transactions/import', authenticate, authorize('Accounting'), upload.single('file'), transactionController.importTransactions);
 
 // SETTINGS
+router.get('/settings', authenticate, authorize('Settings'), settingController.getAllSettings);
 router.get('/settings/:key', authenticate, settingController.getSetting);
 router.post('/settings', authenticate, authorize('Settings'), settingController.setSetting);
 
@@ -88,6 +101,10 @@ router.post('/admin/permissions', authenticate, authorize('Admin'), authControll
 router.get('/admin/account-permissions', authenticate, authorize('Admin'), authController.getAccountPermissions);
 router.post('/admin/account-permissions', authenticate, authorize('Admin'), authController.updateAccountPermissions);
 
+// INDIVIDUAL PERMISSIONS
+router.get('/admin/individual-permissions', authenticate, authorize('Admin'), authController.getIndividualPermissions);
+router.post('/admin/individual-permissions', authenticate, authorize('Admin'), authController.updateIndividualPermission);
+
 // BILLING (ADDON)
 const billingController = require('../controllers/billingController');
 router.get('/bills', authenticate, authorize('Billing'), billingController.getBills);
@@ -111,5 +128,45 @@ router.get('/payroll/records', authenticate, authorize('Payroll'), payrollContro
 router.post('/payroll/records', authenticate, authorize('Payroll'), payrollController.savePayrollRecord);
 router.put('/payroll/records/:id', authenticate, authorize('Payroll'), payrollController.updatePayrollRecord);
 router.delete('/payroll/records/:id', authenticate, authorize('Payroll'), payrollController.deletePayrollRecord);
+
+// ASSET TRACKING
+const assetController = require('../controllers/assetController');
+router.get('/assets', authenticate, authorize('Admin'), assetController.getAssets);
+router.get('/assets/history', authenticate, authorize('Admin'), assetController.getAllHistory);
+router.get('/assets/categories', authenticate, authorize('Admin'), assetController.getCategories);
+router.post('/assets/categories', authenticate, authorize('Admin'), assetController.createCategory);
+router.delete('/assets/categories/:id', authenticate, authorize('Admin'), assetController.deleteCategory);
+router.post('/assets', authenticate, authorize('Admin'), upload.single('invoice'), assetController.createAsset);
+router.put('/assets/:id', authenticate, authorize('Admin'), upload.single('invoice'), assetController.updateAsset);
+router.post('/assets/:id/assign', authenticate, authorize('Admin'), assetController.assignAsset);
+router.post('/assets/:id/return', authenticate, authorize('Admin'), assetController.returnAsset);
+router.delete('/assets/:id', authenticate, authorize('Admin'), assetController.deleteAsset);
+
+// SUMMARIES (ADDON)
+router.get('/summaries/daily', authenticate, summaryController.getDailySummaries);
+router.get('/summaries/monthly', authenticate, summaryController.getMonthlySummaries);
+router.get('/summaries/export', authenticate, summaryController.exportSummaries);
+router.post('/summaries/sync', authenticate, authorize('Admin'), async (req, res) => {
+    try {
+        const { accountId, date } = req.body;
+        await summaryController.syncSummaries(accountId, date || new Date());
+        res.json({ message: 'Sync successful' });
+    } catch (err) {
+        res.status(500).json({ detail: err.message });
+    }
+});
+
+// SECURE FILE SERVING
+router.get('/files/:filename', authenticate, (req, res) => {
+    const filename = req.params.filename;
+    const safePath = path.join(__dirname, '../../uploads', filename);
+
+    // Check if file exists and is within the uploads directory
+    if (fs.existsSync(safePath)) {
+        res.sendFile(safePath);
+    } else {
+        res.status(404).json({ detail: 'File not found' });
+    }
+});
 
 module.exports = router;

@@ -178,7 +178,7 @@ body {
 }
 
 .table tbody tr td {
-  padding: 1.25rem 1.5rem !important;
+  padding: 1.25rem .5rem !important;
   border-bottom: 1px solid #f1f5f9 !important;
 }
 
@@ -274,4 +274,118 @@ body {
 .form-select:focus {
   border-color: var(--primary) !important;
   box-shadow: 0 0 0 4px var(--primary-light) !important;
+}
+
+/* Dashboard Utilities */
+.bg-dark-deep {
+  background-color: #0b0e14 !important;
+}
+
+.bg-success-light {
+  background-color: #dcfce7 !important;
+}
+
+.bg-danger-light {
+  background-color: #fee2e2 !important;
+}
+
+.bg-primary-light {
+  background-color: #dbeafe !important;
+}
+
+.bg-info-light {
+  background-color: #e0f2fe !important;
+}
+
+.text-success-dark {
+  color: #166534 !important;
+}
+
+.text-danger-dark {
+  color: #991b1b !important;
+}
+
+.hover-bg-dark:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.hover-up:hover {
+  transform: translateY(-3px);
+}
+
+.x-small {
+  font-size: 0.65rem !important;
+}
+
+.fs-7 {
+  font-size: 0.8rem !important;
+}
+
+.ls-1 {
+  letter-spacing: 0.05em !important;
+}
+
+.fw-extrabold {
+  font-weight: 800 !important;
+}
+
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+.btn-white {
+  background: white !important;
+  color: #1e293b !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.btn-transparent {
+  background: transparent !important;
+}
+
+.btn-glass-dark {
+  background: rgba(30, 41, 59, 0.1) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #1e293b !important;
+}
+
+.font-monospace {
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace !important;
+}
+
+/* Modern Ledger Specifics */
+.modern-ledger-container {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bg-dark-deep {
+  background-color: #0b111b !important;
+}
+
+.hover-bg-dark:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.transaction-feed .card {
+  border-left: 4px solid transparent !important;
+  transition: all 0.2s ease;
+}
+
+.transaction-feed .card:hover {
+  border-left-color: var(--primary) !important;
+  background: #fdfdfd !important;
+  transform: translateX(5px);
 }
