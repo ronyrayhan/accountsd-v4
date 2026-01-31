@@ -21,7 +21,7 @@ app.use(helmet({
 }));
 app.use(mongoSanitize());
 app.use(cors({
-    origin: ['https://accountsd-v4-o2li.vercel.app', 'https://accountsd-v4.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+    origin: true, // Reflects the request origin
     credentials: true
 }));
 
@@ -53,13 +53,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Routes
-// In Vercel, the 'api/' folder handles exactly root + /api
-// Locally we use /api standard
-if (process.env.VERCEL) {
-    app.use('/', apiRoutes);
-} else {
-    app.use('/api', apiRoutes);
-}
+app.use('/api', apiRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
