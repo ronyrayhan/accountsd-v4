@@ -9,6 +9,40 @@ const getSetting = async (key, defaultValue) => {
     return setting ? setting.value : defaultValue;
 };
 
+const calculateBalanceAt = async (accountId, date) => {
+    const account = await Account.findById(accountId);
+    if (!account) return { bdt: 0, usd: 0 };
+
+    let bdt = Number(account.opening_balance_bdt || 0);
+    let usd = Number(account.opening_balance_usd || 0);
+
+    // Get all transactions BEFORE the given date
+    const txns = await Transaction.find({
+        account_id: accountId,
+        date: { $lt: date }
+    });
+
+    for (const txn of txns) {
+        const amt = Number(txn.amount || 0);
+        const convAmt = Number(txn.converted_amount_bdt || 0);
+
+        if (txn.currency === 'BDT') {
+            if (txn.type === 'Credit') bdt = Math.round((bdt + amt) * 100) / 100;
+            else if (txn.type === 'Debit') bdt = Math.round((bdt - amt) * 100) / 100;
+        } else {
+            if (txn.conversion_type === 'None' || txn.source_type === 'Exchange') {
+                if (txn.type === 'Credit') usd = Math.round((usd + amt) * 100) / 100;
+                else if (txn.type === 'Debit') usd = Math.round((usd - amt) * 100) / 100;
+            } else {
+                const bdtImpact = convAmt;
+                if (txn.type === 'Credit') bdt = Math.round((bdt + bdtImpact) * 100) / 100;
+                else if (txn.type === 'Debit') bdt = Math.round((bdt - bdtImpact) * 100) / 100;
+            }
+        }
+    }
+    return { bdt, usd };
+};
+
 /**
  * Recalculates the current balance for a specific account.
  * It fetches all transactions for the account and sums them up from the opening balance.
@@ -335,6 +369,29 @@ const getTransactions = async (req, res) => {
         if (limit !== -1) q = q.limit(limit);
 
         const transactions = await q;
+
+        let openingBdt = 0;
+        let openingUsd = 0;
+
+        if (startDate) {
+            let targetAccountIds = [];
+            if (accountId) {
+                targetAccountIds = [accountId];
+            } else if (req.user.role !== 'Admin') {
+                const allowedLinks = await AccountPermission.find({ role: req.user.role, can_access: true });
+                targetAccountIds = allowedLinks.map(l => l.account_id);
+            } else {
+                const allAccounts = await Account.find({}, '_id');
+                targetAccountIds = allAccounts.map(a => a._id);
+            }
+
+            for (const accId of targetAccountIds) {
+                const bal = await calculateBalanceAt(accId, new Date(startDate));
+                openingBdt += bal.bdt;
+                openingUsd += bal.usd;
+            }
+        }
+
         // Map account_id to account to match Sequelize output structure
         const mapped = transactions.map(t => {
             const obj = t.toObject();
@@ -343,7 +400,11 @@ const getTransactions = async (req, res) => {
             return obj;
         });
 
-        res.json(mapped);
+        res.json({
+            transactions: mapped,
+            openingBdt: Math.round(openingBdt * 100) / 100,
+            openingUsd: Math.round(openingUsd * 100) / 100
+        });
     } catch (error) {
         res.status(500).json({ detail: error.message });
     }
@@ -626,6 +687,12 @@ const getAccountStatement = async (req, res) => {
         let runningBdt = Number(account.opening_balance_bdt || 0);
         let runningUsd = Number(account.opening_balance_usd || 0);
 
+        if (startDate) {
+            const hist = await calculateBalanceAt(id, new Date(startDate));
+            runningBdt = hist.bdt;
+            runningUsd = hist.usd;
+        }
+
         const statement = transactions.map(txn => {
             const amt = Number(txn.amount || 0);
             const convAmt = Number(txn.converted_amount_bdt || 0);
@@ -652,7 +719,9 @@ const getAccountStatement = async (req, res) => {
 
         res.json({
             account,
-            statement
+            statement,
+            periodOpeningBdt: runningBdt,
+            periodOpeningUsd: runningUsd
         });
     } catch (error) {
         res.status(500).json({ detail: error.message });
@@ -692,6 +761,12 @@ const downloadAccountStatement = async (req, res) => {
 
         let runningBdt = Number(account.opening_balance_bdt || 0);
         let runningUsd = Number(account.opening_balance_usd || 0);
+
+        if (startDate) {
+            const hist = await calculateBalanceAt(id, new Date(startDate));
+            runningBdt = hist.bdt;
+            runningUsd = hist.usd;
+        }
 
         worksheet.addRow({
             trx_id: '-',

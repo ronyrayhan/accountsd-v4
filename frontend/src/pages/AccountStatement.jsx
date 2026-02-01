@@ -234,18 +234,20 @@ const AccountStatement = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {!filters.startDate && (
-                                <tr>
-                                    <td className="text-muted">-</td>
-                                    <td className="text-muted">Opening</td>
-                                    <td className="text-muted italic">Beginning Balance</td>
-                                    <td className="text-end">-</td>
-                                    <td className="text-end">-</td>
-                                    <td className="text-end fw-bold">{Number(account.opening_balance_bdt).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                    <td className="text-end fw-bold">${Number(account.opening_balance_usd).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                    <td className="text-center">-</td>
-                                </tr>
-                            )}
+                            <tr>
+                                <td className="text-muted">-</td>
+                                <td className="text-muted">Opening</td>
+                                <td className="text-muted italic">Period Beginning Balance</td>
+                                <td className="text-end">-</td>
+                                <td className="text-end">-</td>
+                                <td className="text-end fw-bold text-dark">
+                                    {(data.periodOpeningBdt || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="text-end fw-bold text-dark">
+                                    ${(data.periodOpeningUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="text-center">-</td>
+                            </tr>
                             {sortedStatement.map((txn) => (
                                 <tr key={txn.id}>
                                     <td>

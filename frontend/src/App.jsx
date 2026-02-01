@@ -14,6 +14,7 @@ import Payroll from './pages/Payroll';
 import AccountSummaries from './pages/AccountSummaries';
 import AssetTracking from './pages/AssetTracking';
 import ActiveSessions from './pages/ActiveSessions';
+import HRManagement from './pages/HRManagement';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './index.css';
@@ -114,9 +115,17 @@ function App() {
             }
           />
           <Route
+            path="/hr"
+            element={
+              <ProtectedRoute module="HR">
+                <HRManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/summaries"
             element={
-              <ProtectedRoute module="Reports">
+              <ProtectedRoute module="Summaries">
                 <AccountSummaries />
               </ProtectedRoute>
             }

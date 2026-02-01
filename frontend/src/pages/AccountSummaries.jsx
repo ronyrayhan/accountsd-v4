@@ -3,10 +3,19 @@ import Layout from '../components/Layout';
 import api from '../api/axios';
 
 const AccountSummaries = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const currentMonth = today.substring(0, 7);
+
     const [dailyData, setDailyData] = useState([]);
     const [monthlyData, setMonthlyData] = useState([]);
     const [accounts, setAccounts] = useState([]);
-    const [filters, setFilters] = useState({ accountId: '', startDate: '', endDate: '' });
+    const [filters, setFilters] = useState({
+        accountId: '',
+        startDate: today,
+        endDate: '',
+        startMonth: currentMonth,
+        endMonth: ''
+    });
     const [view, setView] = useState('daily'); // 'daily' or 'monthly'
     const [loading, setLoading] = useState(false);
 
@@ -26,9 +35,25 @@ const AccountSummaries = () => {
             const endpoint = view === 'daily' ? '/summaries/daily' : '/summaries/monthly';
             const params = new URLSearchParams();
             if (filters.accountId) params.append('accountId', filters.accountId);
+
             if (view === 'daily') {
-                if (filters.startDate) params.append('startDate', filters.startDate);
-                if (filters.endDate) params.append('endDate', filters.endDate);
+                let s = filters.startDate;
+                let e = filters.endDate;
+                // If single date is selected show only data for that date
+                if (s && !e) e = s;
+                if (e && !s) s = e;
+
+                if (s) params.append('startDate', s);
+                if (e) params.append('endDate', e);
+            } else {
+                let sm = filters.startMonth;
+                let em = filters.endMonth;
+                // Same logic for month
+                if (sm && !em) em = sm;
+                if (em && !sm) sm = em;
+
+                if (sm) params.append('startMonth', sm);
+                if (em) params.append('endMonth', em);
             }
 
             const res = await api.get(`${endpoint}?${params.toString()}`);
@@ -171,13 +196,22 @@ const AccountSummaries = () => {
                                 {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                             </select>
                         </div>
-                        {view === 'daily' && (
+                        {view === 'daily' ? (
                             <>
                                 <div className="col-md-3">
                                     <input type="date" className="form-control border-light-subtle rounded-3" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} />
                                 </div>
                                 <div className="col-md-3">
                                     <input type="date" className="form-control border-light-subtle rounded-3" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} />
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="col-md-3">
+                                    <input type="month" className="form-control border-light-subtle rounded-3" value={filters.startMonth} onChange={e => setFilters({ ...filters, startMonth: e.target.value })} />
+                                </div>
+                                <div className="col-md-3">
+                                    <input type="month" className="form-control border-light-subtle rounded-3" value={filters.endMonth} onChange={e => setFilters({ ...filters, endMonth: e.target.value })} />
                                 </div>
                             </>
                         )}

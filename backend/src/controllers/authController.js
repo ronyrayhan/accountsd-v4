@@ -71,7 +71,7 @@ const getMe = async (req, res) => {
     try {
         let permissions = [];
         if (req.user.role === 'Admin') {
-            const modulesList = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'Assets', 'ActiveSessions'];
+            const modulesList = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'Assets', 'ActiveSessions', 'HR', 'Summaries'];
             permissions = modulesList.map(m => ({ module: m, can_access: true }));
         } else {
             const rolePerms = await RolePermission.find({ role: req.user.role });
@@ -96,20 +96,22 @@ const getMe = async (req, res) => {
                     { module: 'Dashboard', label: 'Dashboard', path: '/', icon: 'fa-solid fa-house' },
                     { module: 'Ledger', label: 'Transaction Ledger', path: '/ledger', icon: 'fa-solid fa-receipt' },
                     { module: 'Reports', label: 'Analytics', path: '/reports', icon: 'fa-solid fa-chart-pie' },
+                    { module: 'Summaries', label: 'Financial Snapshots', path: '/summaries', icon: 'fa-solid fa-clock-rotate-left' },
                     { module: 'Billing', label: 'Billing & Payables', path: '/billing', icon: 'fa-solid fa-file-invoice-dollar' }
                 ]
             },
             {
-                title: 'Operations',
+                title: 'Human Resources',
                 items: [
-                    { module: 'Payroll', label: 'HR & Payroll', path: '/payroll', icon: 'fa-solid fa-people-group' },
+                    { module: 'HR', label: 'HR & Attendance', path: '/hr', icon: 'fa-solid fa-calendar-check' },
+                    { module: 'Payroll', label: 'Payroll Center', path: '/payroll', icon: 'fa-solid fa-people-group' },
                     { module: 'Assets', label: 'Asset Tracking', path: '/assets', icon: 'fa-solid fa-boxes-stacked' }
                 ]
             },
             {
-                title: 'System',
+                title: 'System Control',
                 items: [
-                    { module: 'Settings', label: 'Settings', path: '/settings', icon: 'fa-solid fa-gears' },
+                    { module: 'Settings', label: 'Global Settings', path: '/settings', icon: 'fa-solid fa-gears' },
                     { module: 'AuditTrail', label: 'Audit Trail', path: '/logs', icon: 'fa-solid fa-shield-halved', adminOnly: true },
                     { module: 'ActiveSessions', label: 'Active Sessions', path: '/active-sessions', icon: 'fa-solid fa-network-wired', adminOnly: true }
                 ]
@@ -135,6 +137,8 @@ const getMe = async (req, res) => {
             canUsers: canAccess('Users'),
             canBilling: canAccess('Billing'),
             canPayroll: canAccess('Payroll'),
+            canHR: canAccess('HR'),
+            canSummaries: canAccess('Summaries'),
             isAdmin: req.user.role === 'Admin'
         };
 

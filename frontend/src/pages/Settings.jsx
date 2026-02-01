@@ -25,7 +25,7 @@ const Settings = () => {
     const [selectedUserId, setSelectedUserId] = useState('');
     const [newUser, setNewUser] = useState({ username: '', password: '', role: 'Viewer' });
 
-    const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'HR', 'Assets'];
+    const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'HR', 'Assets', 'Summaries'];
     const roles = ['Accountant', 'Viewer'];
 
     const fetchData = async () => {

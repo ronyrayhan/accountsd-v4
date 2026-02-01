@@ -7,25 +7,23 @@ import { useAuth } from '../context/AuthContext';
 const Ledger = () => {
     const { user } = useAuth();
     const [transactions, setTransactions] = useState([]);
+    const [openingBal, setOpeningBal] = useState({ bdt: 0, usd: 0 });
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewingAttachment, setViewingAttachment] = useState(null);
     const [viewMode, setViewMode] = useState('classic'); // 'classic' or 'modern'
     const [selectedMonth, setSelectedMonth] = useState(null); // For modern view filtering
 
-    // Default to current month
-    const [filters, setFilters] = useState(() => {
-        const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA'); // YYYY-MM-DD
-        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA');
-        return {
-            startDate: start,
-            endDate: end,
-            accountId: '',
-            currency: '',
-            type: '',
-            search: ''
-        };
+    const today = new Date().toISOString().split('T')[0];
+
+    // Default to today only
+    const [filters, setFilters] = useState({
+        startDate: today,
+        endDate: '',
+        accountId: '',
+        currency: '',
+        type: '',
+        search: ''
     });
 
     // Modern View Year Helper
@@ -43,15 +41,28 @@ const Ledger = () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
-            if (filters.startDate) params.append('startDate', filters.startDate);
-            if (filters.endDate) params.append('endDate', filters.endDate);
+            let s = filters.startDate;
+            let e = filters.endDate;
+
+            // If only one side is selected, we assume they want ONLY that one date
+            if (s && !e) e = s;
+            if (e && !s) s = e;
+
+            if (s) params.append('startDate', s);
+            if (e) params.append('endDate', e);
             if (filters.accountId && filters.accountId !== "") params.append('accountId', filters.accountId);
             if (filters.currency) params.append('currency', filters.currency);
             if (filters.type) params.append('type', filters.type);
             if (filters.search) params.append('search', filters.search);
 
             const res = await api.get(`/transactions?${params.toString()}&limit=-1`);
-            setTransactions(res.data);
+            if (res.data && res.data.transactions) {
+                setTransactions(res.data.transactions);
+                setOpeningBal({ bdt: res.data.openingBdt || 0, usd: res.data.openingUsd || 0 });
+            } else {
+                setTransactions(Array.isArray(res.data) ? res.data : []);
+                setOpeningBal({ bdt: 0, usd: 0 });
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -62,6 +73,18 @@ const Ledger = () => {
     useEffect(() => {
         fetchTransactions();
     }, [filters]);
+
+    const handleDeleteTransaction = async (id) => {
+        if (!window.confirm('PERMANENT DELETE: This will remove the transaction and impact account balances. Are you sure?')) return;
+        try {
+            await api.delete(`/transactions/${id}`);
+            fetchTransactions();
+            const res = await api.get('/accounts'); // Refresh balances if needed elsewhere
+            setAccounts(res.data);
+        } catch (err) {
+            alert(err.response?.data?.detail || 'Delete failed');
+        }
+    };
 
     const fetchAccounts = async () => {
         try {
@@ -107,7 +130,10 @@ const Ledger = () => {
     const sortedAndFilteredTransactions = useMemo(() => {
         let data = [...transactions];
         if (selectedMonth && viewMode === 'modern') {
-            data = data.filter(t => new Date(t.date).toISOString().substring(0, 7) === selectedMonth);
+            data = data.filter(t => {
+                const localDate = new Date(t.date).toLocaleDateString('en-CA'); // YYYY-MM-DD
+                return localDate.substring(0, 7) === selectedMonth;
+            });
         }
 
         return data.sort((a, b) => {
@@ -136,8 +162,15 @@ const Ledger = () => {
     const monthlySummaries = useMemo(() => {
         const months = {};
         transactions.forEach(t => {
-            const m = new Date(t.date).toISOString().substring(0, 7);
-            if (!months[m]) months[m] = { credit: 0, debit: 0, name: new Date(t.date).toLocaleString('default', { month: 'short', year: 'numeric' }) };
+            const dateObj = new Date(t.date);
+            const m = dateObj.toLocaleDateString('en-CA').substring(0, 7); // Use local month
+            if (!months[m]) {
+                months[m] = {
+                    credit: 0,
+                    debit: 0,
+                    name: dateObj.toLocaleString('default', { month: 'short', year: 'numeric' })
+                };
+            }
             const amt = parseFloat(t.amount) || 0;
             if (t.type === 'Credit') months[m].credit += amt;
             else months[m].debit += amt;
@@ -154,7 +187,7 @@ const Ledger = () => {
     };
 
     const handleResetFilters = () => {
-        setFilters({ startDate: '', endDate: '', accountId: '', currency: '', type: '', search: '' });
+        setFilters({ startDate: today, endDate: '', accountId: '', currency: '', type: '', search: '' });
         setSelectedMonth(null);
     };
 
@@ -256,22 +289,14 @@ const Ledger = () => {
                         {isFilterExpanded && (
                             <div className="card-body p-4 bg-light-subtle">
                                 <div className="row g-3">
-                                    <div className="col-md-3">
-                                        <label className="form-label small fw-bold text-muted text-uppercase">Timeline</label>
-                                        <div className="input-group input-group-sm">
-                                            <input type="date" className="form-control" name="startDate" value={filters.startDate} onChange={handleFilterChange} />
-                                            <span className="input-group-text bg-white border-start-0 border-end-0">to</span>
-                                            <input type="date" className="form-control" name="endDate" value={filters.endDate} onChange={handleFilterChange} />
-                                        </div>
-                                    </div>
-                                    <div className="col-md-3">
+                                    <div className="col-md-4">
                                         <label className="form-label small fw-bold text-muted text-uppercase">Account</label>
                                         <select className="form-select form-select-sm" name="accountId" value={filters.accountId} onChange={handleFilterChange}>
                                             <option value="">All Entities</option>
                                             {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                                         </select>
                                     </div>
-                                    <div className="col-md-2">
+                                    <div className="col-md-3">
                                         <label className="form-label small fw-bold text-muted text-uppercase">Currency</label>
                                         <select className="form-select form-select-sm" name="currency" value={filters.currency} onChange={handleFilterChange}>
                                             <option value="">Universal</option>
@@ -279,7 +304,7 @@ const Ledger = () => {
                                             <option value="BDT">BDT (৳)</option>
                                         </select>
                                     </div>
-                                    <div className="col-md-4">
+                                    <div className="col-md-5">
                                         <label className="form-label small fw-bold text-muted text-uppercase">Keyword Search</label>
                                         <div className="d-flex gap-2">
                                             <input type="text" className="form-control form-control-sm" placeholder="ID or Description..." name="search" value={filters.search} onChange={handleFilterChange} />
@@ -323,9 +348,14 @@ const Ledger = () => {
                                             <td className="text-end text-success fw-bold">{t.type === 'Credit' ? t.amount.toLocaleString() : '-'}</td>
                                             <td className="text-center"><span className={`badge rounded-pill ${t.currency === 'USD' ? 'bg-success' : 'bg-primary'}`}>{t.currency}</span></td>
                                             <td className="pe-4 text-center">
-                                                {t.attachments?.length > 0 && (
-                                                    <button className="btn btn-link btn-sm text-primary p-0" onClick={() => setViewingAttachment(t)}><i className="fa-solid fa-paperclip"></i></button>
-                                                )}
+                                                <div className="d-flex justify-content-center gap-2">
+                                                    {t.attachments?.length > 0 && (
+                                                        <button className="btn btn-link btn-sm text-primary p-0" onClick={() => setViewingAttachment(t)}><i className="fa-solid fa-paperclip"></i></button>
+                                                    )}
+                                                    {user?.role === 'Admin' && (
+                                                        <button className="btn btn-link btn-sm text-danger p-0" onClick={() => handleDeleteTransaction(t.id || t._id)} title="Delete"><i className="fa-solid fa-trash-can"></i></button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -397,24 +427,32 @@ const Ledger = () => {
 
                         {/* Top Stats Cards */}
                         <div className="row g-3 mb-4">
-                            <div className="col-md-4">
+                            <div className="col-md-3">
+                                <div className="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-secondary border-4">
+                                    <div className="text-muted small fw-bold mb-1">OPENING BALANCE</div>
+                                    <div className="h5 fw-bold text-dark mb-0">৳ {openingBal.bdt.toLocaleString()}</div>
+                                    <div className="x-small text-muted">${openingBal.usd.toLocaleString()}</div>
+                                </div>
+                            </div>
+                            <div className="col-md-3">
                                 <div className="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-success border-4">
                                     <div className="text-muted small fw-bold mb-1">TOTAL CREDITS</div>
-                                    <div className="h4 fw-bold text-success mb-0">৳ {stats.credit.toLocaleString()}</div>
+                                    <div className="h5 fw-bold text-success mb-0">৳ {stats.credit.toLocaleString()}</div>
                                 </div>
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-md-3">
                                 <div className="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-danger border-4">
                                     <div className="text-muted small fw-bold mb-1">TOTAL DEBITS</div>
-                                    <div className="h4 fw-bold text-danger mb-0">৳ {stats.debit.toLocaleString()}</div>
+                                    <div className="h5 fw-bold text-danger mb-0">৳ {stats.debit.toLocaleString()}</div>
                                 </div>
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-md-3">
                                 <div className="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-primary border-4">
-                                    <div className="text-muted small fw-bold mb-1">NET MOVEMENT</div>
-                                    <div className={`h4 fw-bold mb-0 ${stats.credit - stats.debit >= 0 ? 'text-primary' : 'text-warning'}`}>
-                                        ৳ {(stats.credit - stats.debit).toLocaleString()}
+                                    <div className="text-muted small fw-bold mb-1">CLOSING BALANCE</div>
+                                    <div className={`h5 fw-bold mb-0 ${(openingBal.bdt + stats.credit - stats.debit) >= 0 ? 'text-primary' : 'text-warning'}`}>
+                                        ৳ {(openingBal.bdt + stats.credit - stats.debit).toLocaleString()}
                                     </div>
+                                    <div className="x-small text-muted">Net: ৳ {(stats.credit - stats.debit).toLocaleString()}</div>
                                 </div>
                             </div>
                         </div>
