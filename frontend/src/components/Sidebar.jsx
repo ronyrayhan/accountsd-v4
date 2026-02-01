@@ -5,10 +5,15 @@ import './Sidebar.css';
 
 const Sidebar = () => {
     const { user, logout } = useAuth();
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    // Initialize state from localStorage so it persists across page reloads/navigation
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        return localStorage.getItem('sidebarCollapsed') === 'true';
+    });
 
     const toggleSidebar = () => {
-        setIsCollapsed(!isCollapsed);
+        const newState = !isCollapsed;
+        setIsCollapsed(newState);
+        localStorage.setItem('sidebarCollapsed', newState);
     };
 
     return (

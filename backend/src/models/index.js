@@ -267,6 +267,16 @@ const SystemLogSchema = new mongoose.Schema({
     type: { type: String, enum: ['entry', 'edit', 'delete', 'auth', 'admin', 'setting'], default: 'entry' }
 });
 
+const ActiveSessionSchema = new mongoose.Schema({
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    username: { type: String, required: true },
+    ip_address: { type: String },
+    user_agent: { type: String },
+    login_time: { type: Date, default: Date.now },
+    last_activity: { type: Date, default: Date.now },
+    token_signature: { type: String } // Optional: Store part of the JWT or a session ID to validate specific tokens
+}, { timestamps: true });
+
 // Global Options for all schemas to include id virtual
 const schemaOptions = {
     toJSON: { virtuals: true },
@@ -279,7 +289,7 @@ const schemaOptions = {
     TransactionHistorySchema, AccountHistorySchema, RolePermissionSchema, AccountPermissionSchema,
     IndividualModulePermissionSchema, IndividualAccountPermissionSchema,
     BillSchema, EmployeeSchema, IncrementSchema, PayrollRecordSchema, SystemLogSchema, CounterSchema,
-    AttendanceSchema, LeaveSchema, AssetSchema].forEach(schema => {
+    AttendanceSchema, LeaveSchema, AssetSchema, ActiveSessionSchema].forEach(schema => {
         schema.virtual('id').get(function () {
             return this._id.toHexString();
         });
@@ -303,6 +313,7 @@ const Employee = mongoose.model('Employee', EmployeeSchema);
 const Increment = mongoose.model('Increment', IncrementSchema);
 const PayrollRecord = mongoose.model('PayrollRecord', PayrollRecordSchema);
 const SystemLog = mongoose.model('SystemLog', SystemLogSchema);
+const ActiveSession = mongoose.model('ActiveSession', ActiveSessionSchema);
 const Attendance = mongoose.model('Attendance', AttendanceSchema);
 const Leave = mongoose.model('Leave', LeaveSchema);
 const Asset = mongoose.model('Asset', AssetSchema);
@@ -333,5 +344,6 @@ module.exports = {
     Leave,
     Asset,
     AssetCategory,
-    AssetHistory
+    AssetHistory,
+    ActiveSession
 };

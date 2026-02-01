@@ -9,6 +9,7 @@ const AssetTracking = () => {
     const [globalHistory, setGlobalHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' or 'history'
+    const [errorMsg, setErrorMsg] = useState(null);
 
     const [showAssetModal, setShowAssetModal] = useState(false);
     const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -90,24 +91,26 @@ const AssetTracking = () => {
             }
             setShowAssetModal(false);
             setInvoiceFile(null);
+            setErrorMsg(null);
             fetchData();
             setAssetForm({
                 name: '', category: categories[0]?.name || '', serial_number: '', status: 'Available',
                 specs: '', room_number: '', is_fixed: false, purchase_date: '', purchase_value: '', purchased_from: ''
             });
         } catch (err) {
-            alert(err.response?.data?.detail || 'Save failed. Please Select correct file type');
+            setErrorMsg(err.response?.data?.detail || 'Save failed. Please check your inputs or file type.');
         }
     };
 
     const handleSaveCategory = async (e) => {
         e.preventDefault();
         try {
+            setErrorMsg(null);
             await api.post('/assets/categories', { name: newCatName });
             setNewCatName('');
             const res = await api.get('/assets/categories');
             setCategories(res.data);
-        } catch (err) { alert('Failed to add category'); }
+        } catch (err) { setErrorMsg(err.response?.data?.detail || 'Failed to add category'); }
     };
 
     const handleDeleteCategory = async (id) => {
@@ -121,6 +124,7 @@ const AssetTracking = () => {
 
     const handleAssign = async (employeeId) => {
         try {
+            setErrorMsg(null);
             const asset = showAssignModal;
             await api.post(`/assets/${asset.id || asset._id}/assign`, {
                 employee_id: employeeId || null,
@@ -131,7 +135,7 @@ const AssetTracking = () => {
             setAssignNote('');
             setAssignRoom('');
             fetchData();
-        } catch (err) { alert('Operation failed'); }
+        } catch (err) { setErrorMsg(err.response?.data?.detail || 'Operation failed'); }
     };
 
     const handleReturn = async (asset) => {
@@ -398,9 +402,15 @@ const AssetTracking = () => {
                         <div className="modal-content border-0 shadow-lg rounded-4">
                             <div className="modal-header border-0 p-4">
                                 <h5 className="fw-bold m-0">Asset Categories</h5>
-                                <button type="button" className="btn-close" onClick={() => setShowCategoryModal(false)}></button>
+                                <button type="button" className="btn-close" onClick={() => { setShowCategoryModal(false); setErrorMsg(null); }}></button>
                             </div>
                             <div className="modal-body p-4 pt-0">
+                                {errorMsg && (
+                                    <div className="alert alert-danger py-2 px-3 border-0 small fw-bold mb-3 d-flex align-items-center gap-2">
+                                        <i className="fa-solid fa-triangle-exclamation"></i>
+                                        {errorMsg}
+                                    </div>
+                                )}
                                 <form className="d-flex gap-2 mb-4" onSubmit={handleSaveCategory}>
                                     <input type="text" className="form-control bg-light border-0" placeholder="New Category Name" value={newCatName} onChange={e => setNewCatName(e.target.value)} required />
                                     <button className="btn btn-primary px-4 fw-bold">Add</button>
@@ -425,9 +435,15 @@ const AssetTracking = () => {
                         <form className="modal-content border-0 shadow-lg rounded-4" onSubmit={handleSaveAsset}>
                             <div className="modal-header border-0 p-4 pb-0">
                                 <h5 className="fw-bold m-0">{(assetForm.id || assetForm._id) ? 'Modify Record' : 'Register New Asset'}</h5>
-                                <button type="button" className="btn-close" onClick={() => { setShowAssetModal(false); setAssetForm({ name: '', category: categories[0]?.name || '', serial_number: '', status: 'Available', specs: '', room_number: '', is_fixed: false, purchase_date: '', purchase_value: '', purchased_from: '' }); }}></button>
+                                <button type="button" className="btn-close" onClick={() => { setShowAssetModal(false); setErrorMsg(null); setAssetForm({ name: '', category: categories[0]?.name || '', serial_number: '', status: 'Available', specs: '', room_number: '', is_fixed: false, purchase_date: '', purchase_value: '', purchased_from: '' }); }}></button>
                             </div>
                             <div className="modal-body p-4">
+                                {errorMsg && (
+                                    <div className="alert alert-danger py-2 px-3 border-0 small fw-bold mb-3 d-flex align-items-center gap-2">
+                                        <i className="fa-solid fa-triangle-exclamation"></i>
+                                        {errorMsg}
+                                    </div>
+                                )}
                                 <div className="row g-3">
                                     <div className="col-md-6">
                                         <label className="form-label small fw-bold text-muted text-uppercase ls-1">Asset Name</label>
@@ -500,6 +516,12 @@ const AssetTracking = () => {
                                 <div className="text-center mb-4">
                                     <h5 className="fw-bold">Relocation / Assignment</h5>
                                 </div>
+                                {errorMsg && (
+                                    <div className="alert alert-danger py-2 px-3 border-0 small fw-bold mb-3 d-flex align-items-center gap-2">
+                                        <i className="fa-solid fa-triangle-exclamation"></i>
+                                        {errorMsg}
+                                    </div>
+                                )}
                                 <div className="mb-3">
                                     <label className="form-label small fw-bold text-muted">Assign to Employee</label>
                                     <select className="form-select border-light bg-light" onChange={e => handleAssign(e.target.value)}>
@@ -550,10 +572,10 @@ const AssetTracking = () => {
                                                 <tr key={i}>
                                                     <td className="ps-4">
                                                         <span className={`badge rounded-pill ${h.action === 'Assigned' ? 'bg-primary' :
-                                                                h.action === 'Returned' ? 'bg-success' :
-                                                                    h.action === 'Transferred' ? 'bg-info' :
-                                                                        h.action === 'Relocated' ? 'bg-info' :
-                                                                            h.action === 'Deleted' ? 'bg-danger' : 'bg-secondary'
+                                                            h.action === 'Returned' ? 'bg-success' :
+                                                                h.action === 'Transferred' ? 'bg-info' :
+                                                                    h.action === 'Relocated' ? 'bg-info' :
+                                                                        h.action === 'Deleted' ? 'bg-danger' : 'bg-secondary'
                                                             }`}>
                                                             {h.action}
                                                         </span>

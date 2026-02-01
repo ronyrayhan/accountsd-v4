@@ -9,7 +9,6 @@ const Billing = () => {
     const [showModal, setShowModal] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [viewingAttachment, setViewingAttachment] = useState(null);
-
     const [newBill, setNewBill] = useState({
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
@@ -19,6 +18,7 @@ const Billing = () => {
         currency: 'BDT'
     });
     const [file, setFile] = useState(null);
+    const [error, setError] = useState(null);
 
     const fetchBills = async () => {
         try {
@@ -54,9 +54,10 @@ const Billing = () => {
                 currency: 'BDT'
             });
             setFile(null);
+            setError(null);
             fetchBills();
         } catch (err) {
-            alert('Failed to save bill');
+            setError(err.response?.data?.detail || 'Failed to save bill. Please check inputs.');
         } finally {
             setProcessing(false);
         }
@@ -214,10 +215,16 @@ const Billing = () => {
                         <div className="modal-content border-0 shadow-lg">
                             <div className="modal-header border-0 pb-0">
                                 <h5 className="fw-bold">Register New Invoice</h5>
-                                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+                                <button type="button" className="btn-close" onClick={() => { setShowModal(false); setError(null); }}></button>
                             </div>
                             <form onSubmit={handleCreate}>
                                 <div className="modal-body">
+                                    {error && (
+                                        <div className="alert alert-danger py-2 px-3 border-0 small fw-bold mb-3 d-flex align-items-center gap-2">
+                                            <i className="fa-solid fa-triangle-exclamation"></i>
+                                            {error}
+                                        </div>
+                                    )}
                                     <div className="mb-3">
                                         <label className="form-label small fw-bold">Company / Payee</label>
                                         <input type="text" className="form-control" required value={newBill.company_name} onChange={e => setNewBill({ ...newBill, company_name: e.target.value })} placeholder="e.g. Electric Corp" />

@@ -19,6 +19,7 @@ const Payroll = () => {
     const [showEditRecordModal, setShowEditRecordModal] = useState(false);
     const [viewingPayslip, setViewingPayslip] = useState(null);
     const [editRecordForm, setEditRecordForm] = useState(null);
+    const [errorMsg, setErrorMsg] = useState(null);
 
     // Form states
     const [empForm, setEmpForm] = useState({
@@ -167,10 +168,10 @@ const Payroll = () => {
             });
             setShowEditRecordModal(false);
             fetchData();
+            setErrorMsg(null);
             alert('Record updated successfully');
         } catch (err) {
-            console.error('Error updating record', err);
-            alert('Failed to update record');
+            setErrorMsg(err.response?.data?.detail || 'Failed to update record');
         }
     };
 
@@ -317,10 +318,10 @@ const Payroll = () => {
                 await api.post('/payroll/employees', empForm);
             }
             setShowEmpModal(false);
+            setErrorMsg(null);
             fetchData();
         } catch (err) {
-            console.error('Error saving employee', err);
-            alert('Failed to save employee');
+            setErrorMsg(err.response?.data?.detail || 'Failed to save employee');
         }
     };
 
@@ -333,10 +334,10 @@ const Payroll = () => {
                 await api.post('/payroll/increments', incForm);
             }
             setShowIncModal(false);
+            setErrorMsg(null);
             fetchData();
         } catch (err) {
-            console.error('Error saving increment', err);
-            alert('Failed to save increment');
+            setErrorMsg(err.response?.data?.detail || 'Failed to save increment');
         }
     };
 
@@ -388,7 +389,7 @@ const Payroll = () => {
                 <div className="card-body p-2 d-flex gap-2">
                     <button className={`btn flex-grow-1 ${activeTab === 'employees' ? 'btn-primary' : 'btn-light'}`} onClick={() => setActiveTab('employees')}>
                         <i className="fa-solid fa-users me-2"></i> Employees
-                    </button>                    
+                    </button>
                     <button className={`btn flex-grow-1 ${activeTab === 'monthly' ? 'btn-primary' : 'btn-light'}`} onClick={() => setActiveTab('monthly')}>
                         <i className="fa-solid fa-file-invoice-dollar me-2"></i> Salary Sheet
                     </button>
@@ -787,9 +788,15 @@ const Payroll = () => {
                         <form className="modal-content border-0 shadow-lg rounded-4" onSubmit={handleSaveEmployee}>
                             <div className="modal-header border-0 p-4 pb-0">
                                 <h5 className="fw-bold m-0">{empForm.id ? 'Modify Employee' : 'Strategic New Hire'}</h5>
-                                <button type="button" className="btn-close" onClick={() => setShowEmpModal(false)}></button>
+                                <button type="button" className="btn-close" onClick={() => { setShowEmpModal(false); setErrorMsg(null); }}></button>
                             </div>
                             <div className="modal-body p-4">
+                                {errorMsg && (
+                                    <div className="alert alert-danger py-2 px-3 border-0 small fw-bold mb-3 d-flex align-items-center gap-2">
+                                        <i className="fa-solid fa-triangle-exclamation"></i>
+                                        {errorMsg}
+                                    </div>
+                                )}
                                 <div className="row g-3">
                                     <div className="col-12"><label className="form-label small fw-bold">Full Name</label><input type="text" className="form-control shadow-none" value={empForm.name} onChange={e => setEmpForm({ ...empForm, name: e.target.value })} required /></div>
                                     <div className="col-6"><label className="form-label small fw-bold">Emp ID</label><input type="text" className="form-control shadow-none" value={empForm.emp_id} onChange={e => setEmpForm({ ...empForm, emp_id: e.target.value })} required /></div>

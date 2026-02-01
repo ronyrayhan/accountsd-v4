@@ -1,4 +1,4 @@
-const { User, RolePermission, AccountPermission, Account, GlobalSetting, IndividualModulePermission, IndividualAccountPermission } = require('../models');
+const { User, RolePermission, AccountPermission, Account, GlobalSetting, IndividualModulePermission, IndividualAccountPermission, ActiveSession } = require('../models');
 const { hashPassword, comparePassword, createToken } = require('../middleware/auth');
 const { logEvent } = require('../utils/logger');
 
@@ -7,6 +7,7 @@ const { logEvent } = require('../utils/logger');
  * 1. Verifies the password.
  * 2. Checks if the user is 'is_active'.
  * 3. Generates a JWT token for the session.
+ * 4. Creates an ActiveSession entry in DB for tracking.
  */
 const login = async (req, res) => {
     try {
@@ -22,8 +23,39 @@ const login = async (req, res) => {
         }
 
         const token = createToken(user);
+
+        // Create Active Session
+        await ActiveSession.create({
+            user_id: user._id,
+            username: user.username,
+            ip_address: req.ip || req.socket.remoteAddress,
+            user_agent: req.headers['user-agent'],
+            login_time: new Date(),
+            last_activity: new Date()
+        });
+
         await logEvent(user.username, 'Login', 'User successfully logged into the system', 'auth');
         res.json({ access_token: token, token_type: 'bearer' });
+    } catch (error) {
+        res.status(500).json({ detail: error.message });
+    }
+};
+
+const getActiveSessions = async (req, res) => {
+    try {
+        const sessions = await ActiveSession.find().sort({ last_activity: -1 });
+        res.json(sessions);
+    } catch (error) {
+        res.status(500).json({ detail: error.message });
+    }
+};
+
+const terminateSession = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await ActiveSession.findByIdAndDelete(id);
+        await logEvent(req.user.username, 'Force Logout', `Terminated session ${id}`, 'admin');
+        res.json({ message: 'Session terminated' });
     } catch (error) {
         res.status(500).json({ detail: error.message });
     }
@@ -39,7 +71,7 @@ const getMe = async (req, res) => {
     try {
         let permissions = [];
         if (req.user.role === 'Admin') {
-            const modulesList = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'Assets'];
+            const modulesList = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'Assets', 'ActiveSessions'];
             permissions = modulesList.map(m => ({ module: m, can_access: true }));
         } else {
             const rolePerms = await RolePermission.find({ role: req.user.role });
@@ -78,7 +110,8 @@ const getMe = async (req, res) => {
                 title: 'System',
                 items: [
                     { module: 'Settings', label: 'Settings', path: '/settings', icon: 'fa-solid fa-gears' },
-                    { module: 'AuditTrail', label: 'Audit Trail', path: '/logs', icon: 'fa-solid fa-shield-halved', adminOnly: true }
+                    { module: 'AuditTrail', label: 'Audit Trail', path: '/logs', icon: 'fa-solid fa-shield-halved', adminOnly: true },
+                    { module: 'ActiveSessions', label: 'Active Sessions', path: '/active-sessions', icon: 'fa-solid fa-network-wired', adminOnly: true }
                 ]
             }
         ];
@@ -281,5 +314,7 @@ module.exports = {
     getAccountPermissions,
     updateAccountPermissions,
     getIndividualPermissions,
-    updateIndividualPermission
+    updateIndividualPermission,
+    getActiveSessions,
+    terminateSession
 };

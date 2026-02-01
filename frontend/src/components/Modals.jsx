@@ -6,20 +6,21 @@ export const AccountModal = ({ onAccountCreated }) => {
         code: '', name: '', type: 'Asset', subtype: 'Bank',
         opening_balance_bdt: 0, opening_balance_usd: 0
     });
+    const [error, setError] = useState(null);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            setError(null);
             await api.post('/accounts', formData);
             onAccountCreated();
-            // Reset and close (bootstrap way or state way)
             setFormData({
                 code: '', name: '', type: 'Asset', subtype: 'Bank',
                 opening_balance_bdt: 0, opening_balance_usd: 0
             });
             document.querySelector('#accountModal .btn-close')?.click();
         } catch (err) {
-            alert(err.response?.data?.detail || 'Error creating account');
+            setError(err.response?.data?.detail || err.response?.data?.errors?.[0]?.msg || 'Error creating account');
         }
     };
 
@@ -29,9 +30,15 @@ export const AccountModal = ({ onAccountCreated }) => {
                 <div className="modal-content">
                     <div className="modal-header">
                         <h5 className="modal-title">New Account</h5>
-                        <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
+                        <button type="button" className="btn-close" data-bs-dismiss="modal" onClick={() => setError(null)}></button>
                     </div>
                     <div className="modal-body">
+                        {error && (
+                            <div className="alert alert-danger py-2 px-3 border-0 small fw-bold mb-3 d-flex align-items-center gap-2 text-wrap" style={{ wordBreak: 'break-word' }}>
+                                <i className="fa-solid fa-triangle-exclamation"></i>
+                                {error}
+                            </div>
+                        )}
                         <form onSubmit={handleSubmit}>
                             <div className="mb-3">
                                 <label className="form-label">Code</label>
@@ -88,6 +95,7 @@ export const TransactionModal = ({ accounts, onTransactionCreated }) => {
         reference: '', date: '', transfer_target_id: ''
     });
     const [file, setFile] = useState(null);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         if (accounts.length > 0 && !formData.account_id) {
@@ -104,6 +112,7 @@ export const TransactionModal = ({ accounts, onTransactionCreated }) => {
         if (file) data.append('file', file);
 
         try {
+            setError(null);
             await api.post('/transactions', data);
             onTransactionCreated();
             setFormData({
@@ -114,7 +123,12 @@ export const TransactionModal = ({ accounts, onTransactionCreated }) => {
             setFile(null);
             document.querySelector('#transactionModal .btn-close')?.click();
         } catch (err) {
-            alert(err.response?.data?.detail || 'Error creating transaction');
+            const validationErrors = err.response?.data?.errors;
+            if (validationErrors && Array.isArray(validationErrors)) {
+                setError(validationErrors.map(e => e.msg).join(', '));
+            } else {
+                setError(err.response?.data?.detail || 'Error creating transaction');
+            }
         }
     };
 
@@ -124,9 +138,15 @@ export const TransactionModal = ({ accounts, onTransactionCreated }) => {
                 <div className="modal-content">
                     <div className="modal-header">
                         <h5 className="modal-title">New Transaction</h5>
-                        <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
+                        <button type="button" className="btn-close" data-bs-dismiss="modal" onClick={() => setError(null)}></button>
                     </div>
                     <div className="modal-body">
+                        {error && (
+                            <div className="alert alert-danger py-2 px-3 border-0 small fw-bold mb-3 d-flex align-items-center gap-2 text-wrap" style={{ wordBreak: 'break-word' }}>
+                                <i className="fa-solid fa-triangle-exclamation"></i>
+                                {error}
+                            </div>
+                        )}
                         <form onSubmit={handleSubmit}>
                             <div className="mb-3 text-center">
                                 <div className="btn-group w-100">

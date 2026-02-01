@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { User } = require('../models');
+const { User, ActiveSession } = require('../models');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 if (!SECRET_KEY) {
@@ -27,7 +27,8 @@ const createToken = (user) => {
  * 1. Checks if the request has a 'Authorization' header with 'Bearer <token>'.
  * 2. Decodes the token using the secret key.
  * 3. Verifies if the user exists and is active.
- * 4. Attaches the user object to 'req.user' for subsequent routes.
+ * 4. Checks if the user has a valid ActiveSession in the DB.
+ * 5. Attaches the user object to 'req.user' for subsequent routes.
  */
 const authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -42,6 +43,20 @@ const authenticate = async (req, res, next) => {
         if (!user || !user.is_active) {
             return res.status(401).json({ detail: 'User not found or inactive' });
         }
+
+        // Check for active session (Force Logout check)
+        // We match strictly by User ID. 
+        // Ideally we matched token signature, but without re-issuing tokens, checking DB existence is the fallback.
+        const sessionExists = await ActiveSession.findOne({ user_id: user._id });
+        if (!sessionExists) {
+            return res.status(401).json({ detail: 'Session expired or terminated by admin' });
+        }
+
+        // Update last activity
+        sessionExists.last_activity = Date.now();
+        // Update IP if changed? Maybe not, keep original login IP.
+        await sessionExists.save();
+
         req.user = user;
         next();
     } catch (error) {

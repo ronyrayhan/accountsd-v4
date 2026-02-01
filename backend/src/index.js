@@ -79,6 +79,23 @@ app.use((err, req, res, next) => {
         return res.status(400).json({ detail: err.message });
     }
 
+    // Mongoose Validation Error
+    if (err.name === 'ValidationError') {
+        const messages = Object.values(err.errors).map(val => val.message);
+        return res.status(400).json({ detail: messages.join(', ') });
+    }
+
+    // Mongoose Duplicate Key Error
+    if (err.code === 11000) {
+        const field = Object.keys(err.keyValue)[0];
+        return res.status(400).json({ detail: `Duplicate field value entered: ${field}` });
+    }
+
+    // Mongoose Cast Error (Invalid ID)
+    if (err.name === 'CastError') {
+        return res.status(400).json({ detail: `Invalid ${err.path}: ${err.value}` });
+    }
+
     console.error(err.stack);
     const status = err.status || 500;
     const message = (status === 500 && process.env.NODE_ENV === 'production')

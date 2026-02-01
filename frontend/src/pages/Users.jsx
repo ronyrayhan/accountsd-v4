@@ -19,6 +19,8 @@ const Users = () => {
         password: '',
         role: 'Viewer'
     });
+    const [errorMsg, setErrorMsg] = useState(null);
+    const [successMsg, setSuccessMsg] = useState(null);
 
     const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll'];
     const roles = ['Accountant', 'Viewer']; // Admin has all by default
@@ -49,13 +51,25 @@ const Users = () => {
     const handleCreateUser = async (e) => {
         e.preventDefault();
         setProcessing(true);
+        setErrorMsg(null);
+        setSuccessMsg(null);
         try {
             await api.post('/admin/users', newUser);
             setNewUser({ username: '', password: '', role: 'Viewer' });
             await fetchData();
-            alert('User created successfully');
+            setSuccessMsg('User account created successfully.');
         } catch (err) {
-            alert(err.response?.data?.detail || 'Failed to create user');
+            // Extract specific validation message or general error
+            const detail = err.response?.data?.detail;
+            const validationErrors = err.response?.data?.errors;
+
+            if (validationErrors && Array.isArray(validationErrors)) {
+                setErrorMsg(validationErrors.map(e => e.msg).join(', '));
+            } else if (detail) {
+                setErrorMsg(detail);
+            } else {
+                setErrorMsg('An unexpected error occurred. Please try again.');
+            }
         } finally {
             setProcessing(false);
         }
@@ -63,11 +77,12 @@ const Users = () => {
 
     const toggleStatus = async (id) => {
         setProcessing(true);
+        setErrorMsg(null);
         try {
             await api.post(`/admin/users/${id}/status`);
             await fetchData();
         } catch (err) {
-            alert('Failed to update status');
+            setErrorMsg(err.response?.data?.detail || 'Failed to update status');
         } finally {
             setProcessing(false);
         }
@@ -187,6 +202,21 @@ const Users = () => {
                             <div className="col-lg-4">
                                 <div className="p-4 bg-light rounded-4">
                                     <h5 className="fw-bold mb-4">Create New User</h5>
+
+                                    {errorMsg && (
+                                        <div className="alert alert-danger py-2 px-3 border-0 rounded-3 mb-4 d-flex align-items-center gap-2">
+                                            <i className="fa-solid fa-triangle-exclamation"></i>
+                                            <small className="fw-bold">{errorMsg}</small>
+                                        </div>
+                                    )}
+
+                                    {successMsg && (
+                                        <div className="alert alert-success py-2 px-3 border-0 rounded-3 mb-4 d-flex align-items-center gap-2">
+                                            <i className="fa-solid fa-circle-check"></i>
+                                            <small className="fw-bold">{successMsg}</small>
+                                        </div>
+                                    )}
+
                                     <form onSubmit={handleCreateUser}>
                                         <div className="mb-3">
                                             <label className="form-label small fw-bold">Username</label>

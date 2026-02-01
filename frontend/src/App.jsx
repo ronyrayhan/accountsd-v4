@@ -13,6 +13,7 @@ import Billing from './pages/Billing';
 import Payroll from './pages/Payroll';
 import AccountSummaries from './pages/AccountSummaries';
 import AssetTracking from './pages/AssetTracking';
+import ActiveSessions from './pages/ActiveSessions';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './index.css';
@@ -56,6 +57,14 @@ function App() {
             element={
               <ProtectedRoute roles={['Admin']}>
                 <Logs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/active-sessions"
+            element={
+              <ProtectedRoute roles={['Admin']}>
+                <ActiveSessions />
               </ProtectedRoute>
             }
           />

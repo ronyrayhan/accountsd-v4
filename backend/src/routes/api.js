@@ -83,7 +83,14 @@ router.get('/accounts/:id/history', authenticate, authorize(['Accounting', 'Admi
 
 // TRANSACTIONS
 router.get('/transactions', authenticate, authorize('Ledger'), transactionController.getTransactions);
-router.post('/transactions', authenticate, authorize('Accounting'), upload.single('file'), transactionController.createTransaction);
+router.post('/transactions', authenticate, authorize('Accounting'), upload.single('file'), [
+    body('amount').isFloat({ gt: 0 }).withMessage('Amount must be a positive number'),
+    body('account_id').isMongoId().withMessage('Invalid Account ID'),
+    body('type').isIn(['Debit', 'Credit', 'Transfer']).withMessage('Invalid transaction type'),
+    body('currency').isIn(['BDT', 'USD']).withMessage('Invalid currency'),
+    body('date').optional().isISO8601().withMessage('Invalid date format'),
+    validate
+], transactionController.createTransaction);
 router.put('/transactions/:id', authenticate, authorize('Accounting'), transactionController.updateTransaction);
 router.delete('/transactions/:id', authenticate, authorize('Admin'), transactionController.deleteTransaction);
 router.get('/transactions/:id/history', authenticate, authorize(['Accounting', 'Ledger', 'Admin']), transactionController.getTransactionHistory);
@@ -110,11 +117,16 @@ router.get('/logs', authenticate, authorize('Admin'), reportController.getSystem
 router.get('/admin/users', authenticate, authorize(['Admin', 'Users']), authController.listUsers);
 router.post('/admin/users', authenticate, authorize(['Admin', 'Users']), [
     body('username').trim().notEmpty().withMessage('Username is required').isLength({ min: 3 }),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('password')
+        .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+        .matches(/\d/).withMessage('Password must contain at least one number')
+        .matches(/[a-zA-Z]/).withMessage('Password must contain at least one letter'),
     body('role').isIn(['Admin', 'Accountant', 'Viewer', 'Payroll', 'Billing', 'Users']).withMessage('Invalid role'),
     validate
 ], authController.createUser);
 router.post('/admin/users/:id/status', authenticate, authorize('Admin'), authController.toggleUserStatus);
+router.get('/admin/sessions', authenticate, authorize('Admin'), authController.getActiveSessions);
+router.delete('/admin/sessions/:id', authenticate, authorize('Admin'), authController.terminateSession);
 
 // PERMISSIONS
 router.get('/admin/permissions', authenticate, authorize('Admin'), authController.getPermissions);

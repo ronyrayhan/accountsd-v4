@@ -58,6 +58,7 @@ body {
   width: calc(100% - var(--sidebar-width));
   min-height: 100vh;
   padding: 2.5rem;
+  transition: margin-left 0.3s ease, width 0.3s ease;
 }
 
 .sidebar-brand {
