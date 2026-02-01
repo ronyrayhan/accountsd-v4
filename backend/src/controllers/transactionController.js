@@ -16,10 +16,17 @@ const calculateBalanceAt = async (accountId, date) => {
     let bdt = Number(account.opening_balance_bdt || 0);
     let usd = Number(account.opening_balance_usd || 0);
 
-    // Get all transactions BEFORE the given date
+    // Get all transactions BEFORE the given date (adjusted for local perception if needed)
+    // If date is '2026-02-02', we want everything before local 2026-02-02 00:00 (+06:00)
+    let targetDate = new Date(date);
+    // If it's a mid-night UTC date, adjust it to local mid-night
+    if (targetDate.getUTCHours() === 0) {
+        targetDate.setUTCHours(targetDate.getUTCHours() - 6);
+    }
+
     const txns = await Transaction.find({
         account_id: accountId,
-        date: { $lt: date }
+        date: { $lt: targetDate }
     });
 
     for (const txn of txns) {
@@ -347,12 +354,14 @@ const getTransactions = async (req, res) => {
         if (startDate || endDate) {
             query.date = {};
             if (startDate) {
-                query.date.$gte = new Date(startDate);
+                const s = new Date(startDate + 'T00:00:00Z');
+                s.setUTCHours(s.getUTCHours() - 6);
+                query.date.$gte = s;
             }
             if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                query.date.$lte = end;
+                const e = new Date(endDate + 'T23:59:59.999Z');
+                e.setUTCHours(e.getUTCHours() - 6);
+                query.date.$lte = e;
             }
         }
 
@@ -373,22 +382,28 @@ const getTransactions = async (req, res) => {
         let openingBdt = 0;
         let openingUsd = 0;
 
-        if (startDate) {
-            let targetAccountIds = [];
-            if (accountId) {
-                targetAccountIds = [accountId];
-            } else if (req.user.role !== 'Admin') {
-                const allowedLinks = await AccountPermission.find({ role: req.user.role, can_access: true });
-                targetAccountIds = allowedLinks.map(l => l.account_id);
-            } else {
-                const allAccounts = await Account.find({}, '_id');
-                targetAccountIds = allAccounts.map(a => a._id);
-            }
+        let targetAccountIds = [];
+        if (accountId) {
+            targetAccountIds = [accountId];
+        } else if (req.user.role !== 'Admin') {
+            const allowedLinks = await AccountPermission.find({ role: req.user.role, can_access: true });
+            targetAccountIds = allowedLinks.map(l => l.account_id);
+        } else {
+            const allAccounts = await Account.find({}, '_id');
+            targetAccountIds = allAccounts.map(a => a._id);
+        }
 
-            for (const accId of targetAccountIds) {
+        for (const accId of targetAccountIds) {
+            if (startDate) {
                 const bal = await calculateBalanceAt(accId, new Date(startDate));
                 openingBdt += bal.bdt;
                 openingUsd += bal.usd;
+            } else {
+                const account = await Account.findById(accId);
+                if (account) {
+                    openingBdt += Number(account.opening_balance_bdt || 0);
+                    openingUsd += Number(account.opening_balance_usd || 0);
+                }
             }
         }
 
@@ -678,8 +693,18 @@ const getAccountStatement = async (req, res) => {
         if (!account) return res.status(404).json({ detail: 'Account not found' });
 
         const query = { account_id: id };
-        if (startDate && endDate) {
-            query.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
+        if (startDate || endDate) {
+            query.date = {};
+            if (startDate) {
+                const s = new Date(startDate + 'T00:00:00Z');
+                s.setUTCHours(s.getUTCHours() - 6);
+                query.date.$gte = s;
+            }
+            if (endDate) {
+                const e = new Date(endDate + 'T23:59:59.999Z');
+                e.setUTCHours(e.getUTCHours() - 6);
+                query.date.$lte = e;
+            }
         }
 
         const transactions = await Transaction.find(query).sort({ date: 1, _id: 1 }).populate('attachments');
@@ -692,6 +717,9 @@ const getAccountStatement = async (req, res) => {
             runningBdt = hist.bdt;
             runningUsd = hist.usd;
         }
+
+        const periodOpeningBdt = runningBdt;
+        const periodOpeningUsd = runningUsd;
 
         const statement = transactions.map(txn => {
             const amt = Number(txn.amount || 0);
@@ -720,8 +748,8 @@ const getAccountStatement = async (req, res) => {
         res.json({
             account,
             statement,
-            periodOpeningBdt: runningBdt,
-            periodOpeningUsd: runningUsd
+            periodOpeningBdt,
+            periodOpeningUsd
         });
     } catch (error) {
         res.status(500).json({ detail: error.message });
@@ -737,8 +765,18 @@ const downloadAccountStatement = async (req, res) => {
         if (!account) return res.status(404).json({ detail: 'Account not found' });
 
         const query = { account_id: id };
-        if (startDate && endDate) {
-            query.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
+        if (startDate || endDate) {
+            query.date = {};
+            if (startDate) {
+                const s = new Date(startDate + 'T00:00:00Z');
+                s.setUTCHours(s.getUTCHours() - 6);
+                query.date.$gte = s;
+            }
+            if (endDate) {
+                const e = new Date(endDate + 'T23:59:59.999Z');
+                e.setUTCHours(e.getUTCHours() - 6);
+                query.date.$lte = e;
+            }
         }
 
         const transactions = await Transaction.find(query).sort({ date: 1, _id: 1 }).populate('attachments');
@@ -768,12 +806,15 @@ const downloadAccountStatement = async (req, res) => {
             runningUsd = hist.usd;
         }
 
+        const periodOpeningBdt = runningBdt;
+        const periodOpeningUsd = runningUsd;
+
         worksheet.addRow({
             trx_id: '-',
             date: 'Opening',
             description: 'Beginning Balance',
-            running_bdt: runningBdt,
-            running_usd: runningUsd
+            running_bdt: periodOpeningBdt,
+            running_usd: periodOpeningUsd
         });
 
         transactions.forEach(txn => {

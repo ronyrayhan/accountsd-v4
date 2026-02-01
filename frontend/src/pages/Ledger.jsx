@@ -14,7 +14,7 @@ const Ledger = () => {
     const [viewMode, setViewMode] = useState('classic'); // 'classic' or 'modern'
     const [selectedMonth, setSelectedMonth] = useState(null); // For modern view filtering
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
 
     // Default to today only
     const [filters, setFilters] = useState({
@@ -153,30 +153,49 @@ const Ledger = () => {
     const stats = useMemo(() => {
         return sortedAndFilteredTransactions.reduce((acc, t) => {
             const amt = parseFloat(t.amount) || 0;
-            if (t.type === 'Debit') acc.debit += amt;
-            else if (t.type === 'Credit') acc.credit += amt;
+            const convAmt = parseFloat(t.converted_amount_bdt) || 0;
+
+            if (t.type === 'Debit') {
+                if (t.currency === 'USD') {
+                    if (t.conversion_type === 'None' || t.source_type === 'Exchange') acc.usdDebit += amt;
+                    else acc.debit += convAmt;
+                } else acc.debit += amt;
+            } else if (t.type === 'Credit') {
+                if (t.currency === 'USD') {
+                    if (t.conversion_type === 'None' || t.source_type === 'Exchange') acc.usdCredit += amt;
+                    else acc.credit += convAmt;
+                } else acc.credit += amt;
+            }
             return acc;
-        }, { debit: 0, credit: 0 });
+        }, { debit: 0, credit: 0, usdDebit: 0, usdCredit: 0 });
     }, [sortedAndFilteredTransactions]);
 
     const monthlySummaries = useMemo(() => {
         const months = {};
         transactions.forEach(t => {
             const dateObj = new Date(t.date);
-            const m = dateObj.toLocaleDateString('en-CA').substring(0, 7); // Use local month
+            const m = dateObj.toLocaleDateString('en-CA').substring(0, 7);
             if (!months[m]) {
                 months[m] = {
                     credit: 0,
                     debit: 0,
+                    usdCredit: 0,
+                    usdDebit: 0,
                     name: dateObj.toLocaleString('default', { month: 'short', year: 'numeric' })
                 };
             }
             const amt = parseFloat(t.amount) || 0;
-            if (t.type === 'Credit') months[m].credit += amt;
-            else months[m].debit += amt;
+            const convAmt = parseFloat(t.converted_amount_bdt) || 0;
+
+            if (t.type === 'Credit') {
+                if (t.currency === 'USD' && (t.conversion_type === 'None' || t.source_type === 'Exchange')) months[m].usdCredit += amt;
+                else months[m].credit += (t.currency === 'USD' ? convAmt : amt);
+            } else {
+                if (t.currency === 'USD' && (t.conversion_type === 'None' || t.source_type === 'Exchange')) months[m].usdDebit += amt;
+                else months[m].debit += (t.currency === 'USD' ? convAmt : amt);
+            }
         });
 
-        // Filter by selectedYear for Modern View
         const filteredEntries = Object.entries(months).filter(([key]) => key.startsWith(selectedYear));
         return filteredEntries.sort((a, b) => b[0].localeCompare(a[0]));
     }, [transactions, selectedYear]);
@@ -390,7 +409,18 @@ const Ledger = () => {
                                     <div
                                         key={key}
                                         className={`p-3 rounded-4 mb-2 cursor-pointer transition-all ${selectedMonth === key ? 'bg-primary shadow-lg' : 'hover-bg-dark'}`}
-                                        onClick={() => setSelectedMonth(selectedMonth === key ? null : key)}
+                                        onClick={() => {
+                                            if (selectedMonth === key) {
+                                                setSelectedMonth(null);
+                                                setFilters(prev => ({ ...prev, startDate: today, endDate: '' }));
+                                            } else {
+                                                setSelectedMonth(key);
+                                                const [y, m] = key.split('-');
+                                                const start = new Date(y, m - 1, 1).toLocaleDateString('en-CA');
+                                                const end = new Date(y, m, 0).toLocaleDateString('en-CA');
+                                                setFilters(prev => ({ ...prev, startDate: start, endDate: end }));
+                                            }
+                                        }}
                                     >
                                         <div className="d-flex justify-content-between align-items-center mb-2">
                                             <span className={`fw-bold ${selectedMonth === key ? 'text-white' : 'text-light'}`}>{data.name}</span>
@@ -400,10 +430,12 @@ const Ledger = () => {
                                             <div className="col-6 border-end border-secondary border-opacity-25 ps-1">
                                                 <div className="text-uppercase x-small ls-1">Total Credits</div>
                                                 <div className="fw-bold fs-7">৳ {data.credit.toLocaleString()}</div>
+                                                {data.usdCredit > 0 && <div className="text-white-50 x-small">${data.usdCredit.toLocaleString()}</div>}
                                             </div>
                                             <div className="col-6 ps-3">
                                                 <div className="text-uppercase x-small ls-1">Total Debits</div>
                                                 <div className="fw-bold fs-7">৳ {data.debit.toLocaleString()}</div>
+                                                {data.usdDebit > 0 && <div className="text-white-50 x-small">${data.usdDebit.toLocaleString()}</div>}
                                             </div>
                                         </div>
                                     </div>
@@ -438,12 +470,14 @@ const Ledger = () => {
                                 <div className="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-success border-4">
                                     <div className="text-muted small fw-bold mb-1">TOTAL CREDITS</div>
                                     <div className="h5 fw-bold text-success mb-0">৳ {stats.credit.toLocaleString()}</div>
+                                    <div className="x-small text-muted">${stats.usdCredit.toLocaleString()}</div>
                                 </div>
                             </div>
                             <div className="col-md-3">
                                 <div className="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-danger border-4">
                                     <div className="text-muted small fw-bold mb-1">TOTAL DEBITS</div>
                                     <div className="h5 fw-bold text-danger mb-0">৳ {stats.debit.toLocaleString()}</div>
+                                    <div className="x-small text-muted">${stats.usdDebit.toLocaleString()}</div>
                                 </div>
                             </div>
                             <div className="col-md-3">

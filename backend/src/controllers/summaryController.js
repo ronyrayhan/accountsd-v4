@@ -5,13 +5,36 @@ const ExcelJS = require('exceljs');
  * Recalculates summaries for a specific account on a specific date.
  */
 const syncSummaries = async (accountId, dateInput) => {
-    const dateStr = new Date(dateInput).toISOString().split('T')[0];
+    // If no accountId provided, sync for ALL accounts
+    if (!accountId) {
+        const accounts = await Account.find({});
+        for (const acc of accounts) {
+            await syncSummaries(acc._id, dateInput);
+        }
+        return;
+    }
+
+    // Determine the date string (YYYY-MM-DD). 
+    // If dateInput is a string like '2026-02-02', we use it directly.
+    // If it's a Date object, we convert to local YYYY-MM-DD string to match perception.
+    let dateStr;
+    if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+        dateStr = dateInput;
+    } else {
+        const d = dateInput ? new Date(dateInput) : new Date();
+        // Since we know the users are in +06:00, we offset by 6 hours to get the local day
+        const local = new Date(d.getTime() + (6 * 60 * 60 * 1000));
+        dateStr = local.toISOString().split('T')[0];
+    }
     const monthStr = dateStr.substring(0, 7);
 
     // 1. Calculate Daily Summary
-    const startOfDay = new Date(dateStr);
-    const endOfDay = new Date(dateStr);
-    endOfDay.setHours(23, 59, 59, 999);
+    // We search based on the boundaries of that local day in UTC
+    const startOfDay = new Date(dateStr + 'T00:00:00Z');
+    startOfDay.setUTCHours(startOfDay.getUTCHours() - 6);
+
+    const endOfDay = new Date(dateStr + 'T23:59:59.999Z');
+    endOfDay.setUTCHours(endOfDay.getUTCHours() - 6);
 
     const txns = await Transaction.find({
         account_id: accountId,
@@ -51,6 +74,8 @@ const syncSummaries = async (accountId, dateInput) => {
 
     const getBalanceAt = async (accId, upToDate) => {
         const account = await Account.findById(accId);
+        if (!account) return { bdt: 0, usd: 0 };
+
         let bdt = Number(account.opening_balance_bdt || 0);
         let usd = Number(account.opening_balance_usd || 0);
 
@@ -96,11 +121,12 @@ const syncSummaries = async (accountId, dateInput) => {
     );
 
     // 2. Monthly Summary
-    const startOfMonth = new Date(dateStr);
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const endOfMonth = new Date(startOfMonth);
-    endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+    const startOfMonth = new Date(dateStr.substring(0, 7) + '-01T00:00:00Z');
+    startOfMonth.setUTCHours(startOfMonth.getUTCHours() - 6);
+
+    const nextMonthDate = new Date(startOfMonth);
+    nextMonthDate.setUTCMonth(nextMonthDate.getUTCMonth() + 1);
+    const endOfMonth = nextMonthDate;
 
     const monthTxns = await Transaction.find({
         account_id: accountId,

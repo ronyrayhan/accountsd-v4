@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import api from '../api/axios';
 
 const AccountSummaries = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const currentMonth = today.substring(0, 7);
 
     const [dailyData, setDailyData] = useState([]);
@@ -25,6 +25,8 @@ const AccountSummaries = () => {
     const stats = {
         totalCredit: currentData.reduce((acc, curr) => acc + (curr.credit_bdt || 0), 0),
         totalDebit: currentData.reduce((acc, curr) => acc + (curr.debit_bdt || 0), 0),
+        totalUsdCredit: currentData.reduce((acc, curr) => acc + (curr.credit_usd || 0), 0),
+        totalUsdDebit: currentData.reduce((acc, curr) => acc + (curr.debit_usd || 0), 0),
         netChange: currentData.reduce((acc, curr) => acc + (curr.closing_bdt - curr.opening_bdt), 0),
         totalUsd: currentData.reduce((acc, curr) => acc + (curr.closing_usd || 0), 0),
     };
@@ -127,6 +129,7 @@ const AccountSummaries = () => {
                         <h3 className="fw-bold mb-0 text-dark">
                             <span className="small text-muted fw-normal">BDT</span> {stats.totalCredit.toLocaleString()}
                         </h3>
+                        <div className="small text-success fw-bold font-monospace mt-1">${stats.totalUsdCredit.toLocaleString()}</div>
                     </div>
                 </div>
                 <div className="col-md-3">
@@ -140,6 +143,7 @@ const AccountSummaries = () => {
                         <h3 className="fw-bold mb-0 text-dark">
                             <span className="small text-muted fw-normal">BDT</span> {stats.totalDebit.toLocaleString()}
                         </h3>
+                        <div className="small text-danger fw-bold font-monospace mt-1">${stats.totalUsdDebit.toLocaleString()}</div>
                     </div>
                 </div>
                 <div className="col-md-3">
@@ -228,15 +232,17 @@ const AccountSummaries = () => {
                                 <th className="ps-4 text-muted small fw-bold text-uppercase py-3">Account Entity</th>
                                 <th className="text-muted small fw-bold text-uppercase py-3">{view === 'daily' ? 'Timeline' : 'Period'}</th>
                                 <th className="text-end text-muted small fw-bold text-uppercase py-3">Opening</th>
-                                <th className="text-end text-muted small fw-bold text-uppercase py-3">Credit (+)</th>
-                                <th className="text-end text-muted small fw-bold text-uppercase py-3">Debit (-)</th>
+                                <th className="text-end text-muted small fw-bold text-uppercase py-3">BDT Credit</th>
+                                <th className="text-end text-muted small fw-bold text-uppercase py-3">BDT Debit</th>
+                                <th className="text-end text-muted small fw-bold text-uppercase py-3">USD Credit</th>
+                                <th className="text-end text-muted small fw-bold text-uppercase py-3">USD Debit</th>
                                 <th className="text-end text-muted small fw-bold text-uppercase py-3">Closing Snapshot</th>
                                 <th className="text-end pe-4 text-muted small fw-bold text-uppercase py-3">USD Balance</th>
                             </tr>
                         </thead>
                         <tbody className="border-0">
                             {loading ? (
-                                <tr><td colSpan="7" className="text-center py-5"><div className="spinner-border spinner-border-sm text-primary me-2"></div>Loading analytics...</td></tr>
+                                <tr><td colSpan="8" className="text-center py-5"><div className="spinner-border spinner-border-sm text-primary me-2"></div>Loading analytics...</td></tr>
                             ) : (
                                 currentData.map((row, idx) => (
                                     <tr key={idx} className="border-bottom-light">
@@ -249,6 +255,8 @@ const AccountSummaries = () => {
                                         <td className="text-end font-monospace">{row.opening_bdt?.toLocaleString()}</td>
                                         <td className="text-end text-success fw-bold">+{row.credit_bdt?.toLocaleString()}</td>
                                         <td className="text-end text-danger fw-bold">-{row.debit_bdt?.toLocaleString()}</td>
+                                        <td className="text-end text-success fw-bold" style={{ fontSize: '0.85rem' }}>+${row.credit_usd?.toLocaleString() || '0'}</td>
+                                        <td className="text-end text-danger fw-bold" style={{ fontSize: '0.85rem' }}>-${row.debit_usd?.toLocaleString() || '0'}</td>
                                         <td className="text-end fw-extrabold text-primary">{row.closing_bdt?.toLocaleString()}</td>
                                         <td className="text-end pe-4">
                                             <span className="text-muted small">${row.closing_usd?.toLocaleString()}</span>
@@ -257,7 +265,7 @@ const AccountSummaries = () => {
                                 ))
                             )}
                             {!currentData.length && !loading && (
-                                <tr><td colSpan="7" className="text-center py-5 text-muted fst-italic">No snapshot data available for the selected criteria.</td></tr>
+                                <tr><td colSpan="8" className="text-center py-5 text-muted fst-italic">No snapshot data available for the selected criteria.</td></tr>
                             )}
                         </tbody>
                     </table>

@@ -9,9 +9,9 @@ exports.getAttendance = async (req, res) => {
 
         if (date) {
             const start = new Date(date);
-            start.setHours(0, 0, 0, 0);
+            start.setUTCHours(0, 0, 0, 0);
             const end = new Date(date);
-            end.setHours(23, 59, 59, 999);
+            end.setUTCHours(23, 59, 59, 999);
             query.date = { $gte: start, $lte: end };
         } else if (month) {
             const start = new Date(month + '-01');
@@ -35,7 +35,7 @@ exports.saveAttendance = async (req, res) => {
         const { employee_id, date, check_in, check_out, status, remarks } = req.body;
 
         const attendance = await Attendance.findOneAndUpdate(
-            { employee_id, date: new Date(date).setHours(0, 0, 0, 0) },
+            { employee_id, date: new Date(date).setUTCHours(0, 0, 0, 0) },
             { check_in, check_out, status, remarks },
             { upsert: true, new: true }
         );
@@ -52,7 +52,7 @@ exports.bulkAttendance = async (req, res) => {
         const results = [];
         for (const record of records) {
             const up = await Attendance.findOneAndUpdate(
-                { employee_id: record.employee_id, date: new Date(record.date).setHours(0, 0, 0, 0) },
+                { employee_id: record.employee_id, date: new Date(record.date).setUTCHours(0, 0, 0, 0) },
                 record,
                 { upsert: true, new: true }
             );

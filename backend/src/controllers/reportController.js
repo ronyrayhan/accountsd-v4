@@ -51,15 +51,17 @@ const getCustomSummary = async (req, res) => {
     try {
         const { range } = req.query;
         const now = new Date();
-        let start, end = new Date(now.setHours(23, 59, 59, 999));
+        let start, end = new Date(now);
+        end.setUTCHours(23, 59, 59, 999);
 
         if (range === 'yesterday') {
             const yesterday = new Date();
-            yesterday.setDate(now.getDate() - 1);
-            start = new Date(yesterday.setHours(0, 0, 0, 0));
-            end = new Date(yesterday.setHours(23, 59, 59, 999));
+            yesterday.setUTCDate(now.getUTCDate() - 1);
+            start = new Date(yesterday.setUTCHours(0, 0, 0, 0));
+            end = new Date(yesterday.setUTCHours(23, 59, 59, 999));
         } else {
-            start = new Date(now.setHours(0, 0, 0, 0));
+            start = new Date(now);
+            start.setUTCHours(0, 0, 0, 0);
         }
 
         const spend_bdt_agg = await Transaction.aggregate([
@@ -110,10 +112,14 @@ const getStats = async (req, res) => {
         const bdtStats = await Transaction.aggregate([
             {
                 $match: {
-                    source_type: { $nin: ['Transfer', 'Exchange'] },
+                    source_type: { $ne: 'Transfer' },
                     $or: [
                         { currency: 'BDT' },
-                        { converted_amount_bdt: { $exists: true, $ne: null } }
+                        {
+                            currency: 'USD',
+                            source_type: { $ne: 'Exchange' },
+                            converted_amount_bdt: { $exists: true, $ne: null }
+                        }
                     ]
                 }
             },
@@ -128,7 +134,7 @@ const getStats = async (req, res) => {
         const usdStats = await Transaction.aggregate([
             {
                 $match: {
-                    source_type: { $nin: ['Transfer', 'Exchange'] },
+                    source_type: { $ne: 'Transfer' },
                     currency: 'USD'
                 }
             },
@@ -177,7 +183,7 @@ const getSystemLogs = async (req, res) => {
             if (startDate) query.timestamp.$gte = new Date(startDate);
             if (endDate) {
                 const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
+                end.setUTCHours(23, 59, 59, 999);
                 query.timestamp.$lte = end;
             }
         }
