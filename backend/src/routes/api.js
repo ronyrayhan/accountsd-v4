@@ -21,7 +21,6 @@ const authController = require('../controllers/authController');
 const reportController = require('../controllers/reportController');
 const settingController = require('../controllers/settingController');
 const summaryController = require('../controllers/summaryController');
-const hrController = require('../controllers/hrController');
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
@@ -70,6 +69,7 @@ router.post('/login', [
     body('password').notEmpty().withMessage('Password is required'),
     validate
 ], authController.login);
+router.post('/refresh-token', authController.refreshAccessToken);
 router.get('/auth/me', authenticate, authController.getMe);
 
 // ACCOUNTS
@@ -115,13 +115,14 @@ router.get('/logs', authenticate, authorize('Admin'), reportController.getSystem
 
 // ADMIN & USER MGMT
 router.get('/admin/users', authenticate, authorize(['Admin', 'Users']), authController.listUsers);
-router.post('/admin/users', authenticate, authorize(['Admin', 'Users']), [
+router.get('/admin/users/employee/:employee_id', authenticate, authorize(['Admin', 'HR']), authController.getUserByEmployeeId);
+router.post('/admin/users', authenticate, authorize(['Admin', 'HR']), [
     body('username').trim().notEmpty().withMessage('Username is required').isLength({ min: 3 }),
     body('password')
         .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
         .matches(/\d/).withMessage('Password must contain at least one number')
         .matches(/[a-zA-Z]/).withMessage('Password must contain at least one letter'),
-    body('role').isIn(['Admin', 'Accountant', 'Viewer', 'Payroll', 'Billing', 'Users']).withMessage('Invalid role'),
+    body('role').isIn(['Admin', 'HR', 'Accountant', 'Viewer', 'Payroll', 'Billing', 'Users', 'ESS']).withMessage('Invalid role'),
     validate
 ], authController.createUser);
 router.post('/admin/users/:id/status', authenticate, authorize('Admin'), authController.toggleUserStatus);
@@ -177,13 +178,53 @@ router.post('/assets/:id/assign', authenticate, authorize('Admin'), assetControl
 router.post('/assets/:id/return', authenticate, authorize('Admin'), assetController.returnAsset);
 router.delete('/assets/:id', authenticate, authorize('Admin'), assetController.deleteAsset);
 
-// HR MANAGEMENT (ADDON)
+// HR MANAGEMENT - New comprehensive HR module
+const hrController = require('../controllers/hrController');
+const { authenticateDevice } = require('../middleware/deviceAuth');
+
+// RFID Attendance
+router.post('/hr/attendance/rfid-punch', authenticateDevice, hrController.rfidPunch);
+
+// Global Leave Settings (Leave Types)
+// MUST BE ABOVE /hr/employees/:id TO AVOID MASKING
+const leaveController = require('../controllers/leaveController');
+const shiftController = require('../controllers/shiftController'); // NEW
+
+router.get('/hr/leave-types', authenticate, leaveController.getLeaveTypes);
+router.post('/hr/leave-types', authenticate, authorize(['HR', 'Admin']), leaveController.saveLeaveType);
+
+// Shift Management
+router.get('/hr/shifts', authenticate, authorize(['HR', 'Admin']), shiftController.getShifts);
+router.post('/hr/shifts', authenticate, authorize(['HR', 'Admin']), shiftController.saveShift);
+router.delete('/hr/shifts/:id', authenticate, authorize(['HR', 'Admin']), shiftController.deleteShift);
+
+// Employee Management
+router.get('/hr/employees', authenticate, authorize(['HR', 'Admin']), hrController.getEmployees);
+router.get('/hr/employees/:id', authenticate, authorize(['HR', 'Admin']), hrController.getEmployee);
+router.post('/hr/employees', authenticate, authorize(['HR', 'Admin']), hrController.createEmployee);
+router.put('/hr/employees/:id', authenticate, authorize(['HR', 'Admin']), hrController.updateEmployee);
+
+// Career History
+router.get('/hr/employees/:id/history', authenticate, authorize(['HR', 'Admin']), hrController.getCareerHistory);
+router.post('/hr/career-change', authenticate, authorize(['HR', 'Admin']), hrController.recordCareerChange);
+
+// Attendance Management
 router.get('/hr/attendance', authenticate, authorize(['HR', 'Admin']), hrController.getAttendance);
-router.post('/hr/attendance', authenticate, authorize(['HR', 'Admin']), hrController.saveAttendance);
-router.post('/hr/attendance/bulk', authenticate, authorize(['HR', 'Admin']), hrController.bulkAttendance);
-router.get('/hr/leaves', authenticate, authorize(['HR', 'Admin', 'Dashboard']), hrController.getLeaves);
-router.post('/hr/leaves', authenticate, authorize(['HR', 'Admin', 'Dashboard']), hrController.createLeave);
-router.patch('/hr/leaves/:id/status', authenticate, authorize(['HR', 'Admin']), hrController.updateLeaveStatus);
+
+// Leave Requests
+const attendanceController = require('../controllers/attendanceController');
+
+router.get('/hr/leaves/me/:employee_id', authenticate, leaveController.getMyLeaves);
+router.get('/hr/leaves/balances/:employee_id', authenticate, leaveController.getMyBalances);
+router.post('/hr/leaves/allocate', authenticate, authorize(['HR', 'Admin']), leaveController.allocateLeaves); // NEW
+router.post('/hr/leaves/apply', authenticate, upload.array('attachments'), leaveController.applyForLeave);
+router.post('/hr/leaves/:id/process', authenticate, authorize(['HR', 'Admin', 'Manager']), leaveController.processLeave);
+
+// Legacy/Admin View (Can reuse hrController.getLeaves for now or migrate later)
+router.get('/hr/leaves', authenticate, authorize(['HR', 'Admin']), hrController.getLeaves);
+
+// HR Dashboard
+router.get('/hr/dashboard/stats', authenticate, authorize(['HR', 'Admin', 'Dashboard']), hrController.getDashboardStats);
 
 // SUMMARIES (ADDON)
 router.get('/summaries/daily', authenticate, summaryController.getDailySummaries);

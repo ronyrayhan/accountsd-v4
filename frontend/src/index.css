@@ -103,12 +103,12 @@ body {
 
 /* Cards */
 .card {
-  background: var(--bg-card) !important;
+  background: var(--bg-card);
   border: none !important;
   border-radius: var(--border-radius) !important;
   box-shadow: var(--card-shadow);
   transition: var(--transition);
-  color: var(--text-main) !important;
+  color: var(--text-main);
 }
 
 .card:hover {
@@ -380,13 +380,34 @@ body {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-.transaction-feed .card {
-  border-left: 4px solid transparent !important;
-  transition: all 0.2s ease;
+
+/* Utility Classes */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
 }
 
-.transaction-feed .card:hover {
-  border-left-color: var(--primary) !important;
-  background: #fdfdfd !important;
-  transform: translateX(5px);
+.text-white {
+  color: #ffffff !important;
+}
+
+.text-white-75 {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.hover-lift {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out !important;
+}
+
+.hover-lift:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+.x-small {
+  font-size: 0.65rem !important;
+}
+
+/* Scrollbar Hide */
+.overflow-auto::-webkit-scrollbar {
+  display: none;
 }

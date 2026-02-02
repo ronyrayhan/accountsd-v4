@@ -44,6 +44,7 @@ const Sidebar = () => {
                             <NavLink
                                 key={itemIdx}
                                 to={item.path}
+                                end={item.path === '/' || item.path === '/hr'} /* Ensure strict matching for dashboard paths */
                                 title={isCollapsed ? item.label : ''} /* Tooltip on hover when collapsed */
                                 className={({ isActive }) => `nav-link-custom ${isActive ? 'active' : ''}`}
                             >

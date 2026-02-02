@@ -5,11 +5,14 @@ const fs = require('fs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
+const cookieParser = require('cookie-parser');
 const connectDB = require('./database');
 const { authenticate } = require('./middleware/auth');
 const { User, GlobalSetting, Account, RolePermission, AccountPermission } = require('./models');
 const { hashPassword } = require('./middleware/auth');
 const apiRoutes = require('./routes/api');
+const { initRedis } = require('./utils/cache');
+const { logger } = require('./utils/logger');
 require('dotenv').config();
 
 const app = express();
@@ -47,6 +50,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+app.use(cookieParser()); // Parse cookies for refresh token
 app.use(express.json({ limit: '10kb' })); // Limit body size
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
@@ -69,6 +73,7 @@ app.get('/api/health', healthCheck);
 app.get('/health', healthCheck);
 
 // Routes
+app.use('/api/portal', require('./routes/portal'));
 app.use('/api', apiRoutes);
 app.use('/', apiRoutes); // Fail-safe for Vercel
 
@@ -140,7 +145,7 @@ const setupDB = async () => {
 
         // Seed Default Role Permissions
         const roles = ['Accountant', 'Viewer'];
-        const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'HR', 'Assets'];
+        const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'HR', 'Assets', 'Summaries'];
 
         for (const role of roles) {
             for (const module of modules) {
@@ -149,7 +154,7 @@ const setupDB = async () => {
                     await RolePermission.create({
                         role,
                         module,
-                        can_access: role === 'Accountant'
+                        can_access: (role === 'Accountant')
                     });
                 }
             }
@@ -170,24 +175,27 @@ const setupDB = async () => {
             }
         }
 
-        console.log('Default permissions and checks completed.');
+        logger.info('Default permissions and checks completed');
     } catch (error) {
-        console.error('Database setup failed:', error);
+        logger.error('Database setup failed', { error: error.message, stack: error.stack });
     }
 };
 
 // Only listen if not in Vercel environment
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-    setupDB().then(() => {
+    setupDB().then(async () => {
+        // Initialize Redis (gracefully degrades if unavailable)
+        initRedis();
+
         app.listen(PORT, () => {
-            console.log(`Server is running on port ${PORT}`);
+            logger.info(`Server is running on port ${PORT}`);
         });
     });
 } else {
     // For Vercel, we need to ensure DB is connected
     // Vercel serverless functions are stateless, 
     // but Mongoose caches the connection if connected once.
-    setupDB();
+    setupDB().then(() => initRedis());
 }
 
 module.exports = app;

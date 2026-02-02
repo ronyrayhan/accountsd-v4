@@ -1,0 +1,110 @@
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:45:38"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:45:38"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:45:38"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:45:39"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:45:39"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:48:06"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:48:06"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:48:06"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:48:07"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 21:48:07"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:03:33"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:03:33"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:03:33"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:03:33"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:03:34"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:17:12"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:17:12"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:17:12"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:17:12"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:17:12"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:18:38"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:18:38"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:18:38"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:18:38"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:18:39"}
+{"error":"HREmployee validation failed: employment_info.joining_position: Path `employment_info.joining_position` is required., employment_info.employment_type: `Full-time` is not a valid enum value for path `employment_info.employment_type`., personal_info.blood_group: `b+` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:19:44"}
+{"error":"HREmployee validation failed: employment_info.joining_position: Path `employment_info.joining_position` is required., employment_info.employment_type: `Full-time` is not a valid enum value for path `employment_info.employment_type`., personal_info.blood_group: `b+` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:19:49"}
+{"error":"HREmployee validation failed: employment_info.joining_position: Path `employment_info.joining_position` is required., employment_info.employment_type: `Full-time` is not a valid enum value for path `employment_info.employment_type`., personal_info.blood_group: `b+` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:19:59"}
+{"error":"HREmployee validation failed: employment_info.joining_position: Path `employment_info.joining_position` is required., employment_info.employment_type: `Full-time` is not a valid enum value for path `employment_info.employment_type`., personal_info.blood_group: `b+` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:20:06"}
+{"error":"HREmployee validation failed: employment_info.joining_position: Path `employment_info.joining_position` is required., employment_info.employment_type: `Full-time` is not a valid enum value for path `employment_info.employment_type`., personal_info.blood_group: `SDASDASD` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:22:18"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:28:10"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:28:10"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:28:10"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:28:10"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:28:10"}
+{"error":"HREmployee validation failed: personal_info.gender: `` is not a valid enum value for path `personal_info.gender`., personal_info.blood_group: `b+` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:28:41"}
+{"error":"HREmployee validation failed: personal_info.gender: `` is not a valid enum value for path `personal_info.gender`., personal_info.blood_group: `b+` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:29:12"}
+{"error":"HREmployee validation failed: personal_info.gender: `` is not a valid enum value for path `personal_info.gender`., personal_info.blood_group: `b+` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:29:26"}
+{"error":"HREmployee validation failed: personal_info.gender: `` is not a valid enum value for path `personal_info.gender`., personal_info.blood_group: `b+` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:30:31"}
+{"error":"HREmployee validation failed: personal_info.blood_group: `b+` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","timestamp":"2026-02-02 22:30:39"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:31:24"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:31:24"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:31:24"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:31:25"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:31:25"}
+{"data":{"compensation":{"bank_account":"","bank_name":"","current_salary":15000},"employee_id":"OPT-110","employment_info":{"current_department":"BUSINESS","current_designation":"SA","employment_type":"Full-time","joining_date":"2026-02-02","joining_position":"AS","status":"Active"},"personal_info":{"blood_group":"B posotive","email":"rayhanamin208@gmail.com","emergency_contact":"01811295184","full_name":"rayhan amin","gender":"Male","national_id":"","permanent_address":"DDD","phone":"01982971902","present_address":"SSS"},"rfid_card_number":"A1 B2 C3 D4"},"error":"HREmployee validation failed: personal_info.blood_group: `B posotive` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","stack":"ValidationError: HREmployee validation failed: personal_info.blood_group: `B posotive` is not a valid enum value for path `personal_info.blood_group`.\n    at Document.invalidate (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\document.js:3385:32)\n    at validatePath (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\document.js:3160:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Promise.all (index 12)\n    at async model.$__validate (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\document.js:3101:3)\n    at async model.validate (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\document.js:2672:5)\n    at async model.validateBeforeSave (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\plugins\\validateBeforeSave.js:34:7)\n    at async Kareem.execPre (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\kareem\\index.js:65:24)\n    at async model.$__save (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\model.js:369:5)\n    at async model.save (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\model.js:609:5)\n    at async C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\model.js:2714:9\n    at async Promise.all (index 0)\n    at async model.create (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\model.js:2699:11)\n    at async exports.createEmployee (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\src\\controllers\\hrController.js:82:26)","timestamp":"2026-02-02 22:32:43"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:42:05"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:42:05"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:42:06"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:42:06"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:42:06"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:47:33"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:47:33"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:47:33"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:47:33"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:47:34"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:48:54"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:48:54"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:48:54"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:48:54"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:48:55"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:49:49"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:49:49"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:53:37"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:53:37"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:53:37"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:53:37"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:53:38"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:56:15"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:56:15"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:56:15"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:56:15"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 22:56:16"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:23:29"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:23:29"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:23:29"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:23:29"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:23:30"}
+{"data":{"compensation":{"bank_account":"","bank_name":"","current_salary":0},"employee_id":"OPT-110","employment_info":{"current_department":"BUSINESS","current_designation":"SA","employment_type":"Full-time","joining_date":"2026-02-02","joining_position":"AS","status":"Active"},"personal_info":{"blood_group":"B posotive","date_of_birth":"2026-02-02","email":"rayhanamin208@gmail.com","emergency_contact":"01811295184","full_name":"rayhan amin","gender":"Male","national_id":"","permanent_address":"","phone":"01982971902","present_address":""},"rfid_card_number":"A1 B2 C3 D4"},"error":"HREmployee validation failed: personal_info.blood_group: `B posotive` is not a valid enum value for path `personal_info.blood_group`.","level":"error","message":"Create employee error","stack":"ValidationError: HREmployee validation failed: personal_info.blood_group: `B posotive` is not a valid enum value for path `personal_info.blood_group`.\n    at Document.invalidate (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\document.js:3385:32)\n    at validatePath (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\document.js:3160:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Promise.all (index 13)\n    at async model.$__validate (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\document.js:3101:3)\n    at async model.validate (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\document.js:2672:5)\n    at async model.validateBeforeSave (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\plugins\\validateBeforeSave.js:34:7)\n    at async Kareem.execPre (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\kareem\\index.js:65:24)\n    at async model.$__save (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\model.js:369:5)\n    at async model.save (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\model.js:609:5)\n    at async C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\model.js:2714:9\n    at async Promise.all (index 0)\n    at async model.create (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\node_modules\\mongoose\\lib\\model.js:2699:11)\n    at async exports.createEmployee (C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\backend\\src\\controllers\\hrController.js:82:26)","timestamp":"2026-02-02 23:23:57"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:27:48"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:27:48"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:27:48"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:27:48"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:27:49"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:31:32"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:31:32"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:31:32"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:31:32"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:31:32"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:44:45"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:44:45"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:44:45"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:44:45"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:44:46"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:54:44"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:54:44"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:54:44"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:54:44"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:54:44"}
+{"error":"mongoose is not defined","level":"error","message":"Error calculating balances","timestamp":"2026-02-02 23:55:28"}
+{"error":"mongoose is not defined","level":"error","message":"Error calculating balances","timestamp":"2026-02-02 23:55:28"}
+{"error":"mongoose is not defined","level":"error","message":"Error calculating balances","timestamp":"2026-02-02 23:56:46"}
+{"error":"mongoose is not defined","level":"error","message":"Error calculating balances","timestamp":"2026-02-02 23:56:46"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:58:07"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:58:07"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:58:07"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:58:07"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-02 23:58:08"}
+{"error":"mongoose is not defined","level":"error","message":"Error calculating balances","timestamp":"2026-02-02 23:59:16"}
+{"error":"mongoose is not defined","level":"error","message":"Error calculating balances","timestamp":"2026-02-02 23:59:16"}

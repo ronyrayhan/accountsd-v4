@@ -26,7 +26,7 @@ const Settings = () => {
     const [newUser, setNewUser] = useState({ username: '', password: '', role: 'Viewer' });
 
     const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'HR', 'Assets', 'Summaries'];
-    const roles = ['Accountant', 'Viewer'];
+    const roles = ['HR', 'Accountant', 'Viewer'];
 
     const fetchData = async () => {
         setLoading(true);
@@ -199,6 +199,7 @@ const Settings = () => {
                         <SidebarItem id="accounts" icon="fa-solid fa-building-columns" label="Account Security" subtext="Bank-level accessibility" />
                         <SidebarItem id="individual" icon="fa-solid fa-user-shield" label="Individual Access" subtext="Precision user overrides" />
                         <SidebarItem id="finances" icon="fa-solid fa-comments-dollar" label="Finances" subtext="Rates & currency logic" />
+                        <SidebarItem id="hardware" icon="fa-solid fa-microchip" label="Hardware Sync" subtext="RFID & Device settings" />
                     </div>
                 </div>
 
@@ -271,6 +272,7 @@ const Settings = () => {
                                                     <select className="form-select" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
                                                         <option value="Viewer">Viewer (Read Only)</option>
                                                         <option value="Accountant">Accountant (Entry)</option>
+                                                        <option value="HR">HR Manager</option>
                                                         <option value="Admin">Administrator (Root)</option>
                                                     </select>
                                                 </div>
@@ -471,6 +473,84 @@ const Settings = () => {
                                     </button>
                                 </div>
                             )}
+
+                            {/* Hardware Sync Tab */}
+                            {activeTab === 'hardware' && (
+                                <div className="max-w-800">
+                                    <div className="alert bg-primary-light border-0 rounded-4 p-4 mb-4 d-flex align-items-center">
+                                        <div className="bg-primary bg-opacity-10 text-primary rounded-circle p-3 me-3">
+                                            <i className="fa-solid fa-tower-broadcast fs-4"></i>
+                                        </div>
+                                        <div>
+                                            <h6 className="fw-bold mb-1">ESP32 Integration Hub</h6>
+                                            <p className="small text-muted mb-0">Configure secure endpoints for physical RFID readers and biometric scanners.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="card border-light-subtle rounded-4 mb-4 shadow-none">
+                                        <div className="card-body p-4">
+                                            <label className="form-label x-small fw-bold text-muted text-uppercase ls-1">Device Communication Key (X-Device-API-Key)</label>
+                                            <div className="input-group mb-3">
+                                                <input
+                                                    type="password"
+                                                    className="form-control border-light-subtle"
+                                                    id="apiKeyInput"
+                                                    value={settings.esp32_rfid_api_key || ''}
+                                                    onChange={e => setSettings({ ...settings, esp32_rfid_api_key: e.target.value })}
+                                                />
+                                                <button className="btn btn-outline-secondary" type="button" onClick={() => {
+                                                    const input = document.getElementById('apiKeyInput');
+                                                    input.type = input.type === 'password' ? 'text' : 'password';
+                                                }}>
+                                                    <i className="fa-solid fa-eye"></i>
+                                                </button>
+                                            </div>
+                                            <p className="extra-small text-muted mb-4"><i className="fa-solid fa-circle-info me-1"></i> Rotate this key immediately if hardware is lost or security is breached.</p>
+
+                                            <button
+                                                className="btn btn-primary px-4 fw-bold"
+                                                onClick={async () => {
+                                                    await handleSaveSetting('esp32_rfid_api_key', settings.esp32_rfid_api_key);
+                                                    alert('Hardware security key updated');
+                                                }}
+                                                disabled={saving}
+                                            >
+                                                {saving ? 'Updating...' : 'Update API Key'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="card border-0 bg-dark text-white rounded-4 overflow-hidden">
+                                        <div className="card-header bg-white bg-opacity-10 border-0 p-4">
+                                            <h6 className="fw-bold mb-0 small">Implementation Guide for Developers</h6>
+                                        </div>
+                                        <div className="card-body p-4 pt-0">
+                                            <div className="mt-3">
+                                                <div className="x-small text-white text-opacity-50 mb-2">TARGET ENDPOINT</div>
+                                                <div className="bg-black bg-opacity-50 p-3 rounded font-monospace small mb-4">
+                                                    POST {window.location.origin}/api/hr/attendance/rfid-punch
+                                                </div>
+
+                                                <div className="x-small text-white text-opacity-50 mb-2">REQUIRED HEADERS</div>
+                                                <div className="bg-black bg-opacity-50 p-3 rounded font-monospace small mb-4">
+                                                    Content-Type: application/json<br />
+                                                    X-Device-API-Key: [Your API Key Above]
+                                                </div>
+
+                                                <div className="x-small text-white text-opacity-50 mb-2">JSON PAYLOAD STRUCTURE</div>
+                                                <pre className="bg-black bg-opacity-50 p-3 rounded font-monospace extra-small mb-0">
+                                                    {`{
+  "rfid_card_number": "A1B2C3D4",
+  "device_id": "READER_01",
+  "timestamp": "2026-02-02T15:00:00Z" (Optional)
+}`}
+                                                </pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
 
                         </div>
                     </div>

@@ -4,8 +4,9 @@ const { DailySummary, MonthlySummary } = require('./Summary');
 const UserSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     hashed_password: { type: String, required: true },
-    role: { type: String, enum: ['Admin', 'Accountant', 'Viewer'], default: 'Viewer' },
-    is_active: { type: Boolean, default: true }
+    role: { type: String, enum: ['Admin', 'Accountant', 'Viewer', 'HR', 'ESS'], default: 'Viewer' },
+    is_active: { type: Boolean, default: true },
+    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HREmployee' } // Link to HR Profile
 }, {
     timestamps: true,
     toJSON: {
@@ -108,14 +109,14 @@ const AccountHistorySchema = new mongoose.Schema({
 });
 
 const RolePermissionSchema = new mongoose.Schema({
-    role: { type: String, enum: ['Admin', 'Accountant', 'Viewer'], required: true },
+    role: { type: String, enum: ['Admin', 'Accountant', 'Viewer', 'HR', 'ESS'], required: true },
     module: { type: String, required: true },
     can_access: { type: Boolean, default: false }
 });
 RolePermissionSchema.index({ role: 1, module: 1 }, { unique: true });
 
 const AccountPermissionSchema = new mongoose.Schema({
-    role: { type: String, enum: ['Admin', 'Accountant', 'Viewer'], required: true },
+    role: { type: String, enum: ['Admin', 'Accountant', 'Viewer', 'HR', 'ESS'], required: true },
     account_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
     can_access: { type: Boolean, default: true }
 });
@@ -235,11 +236,9 @@ const AssetHistorySchema = new mongoose.Schema({
 
 const IncrementSchema = new mongoose.Schema({
     employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
-    increment_type: { type: String },
     amount: { type: Number, required: true },
-    approved_date: { type: Date },
     effective_date: { type: Date, required: true },
-    remarks: { type: String }
+    reason: { type: String }
 }, { timestamps: true });
 
 const PayrollRecordSchema = new mongoose.Schema({
@@ -255,8 +254,7 @@ const PayrollRecordSchema = new mongoose.Schema({
     advance_salary: { type: Number, default: 0 },
     gross_salary: { type: Number },
     net_salary: { type: Number },
-    remarks: { type: String },
-    status: { type: String, enum: ['Draft', 'Paid'], default: 'Draft' }
+    is_locked: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const SystemLogSchema = new mongoose.Schema({
@@ -288,8 +286,8 @@ const schemaOptions = {
 [UserSchema, GlobalSettingSchema, AccountSchema, TransactionSchema, AttachmentSchema,
     TransactionHistorySchema, AccountHistorySchema, RolePermissionSchema, AccountPermissionSchema,
     IndividualModulePermissionSchema, IndividualAccountPermissionSchema,
-    BillSchema, EmployeeSchema, IncrementSchema, PayrollRecordSchema, SystemLogSchema, CounterSchema,
-    AttendanceSchema, LeaveSchema, AssetSchema, ActiveSessionSchema].forEach(schema => {
+    BillSchema, EmployeeSchema, SystemLogSchema, CounterSchema,
+    AttendanceSchema, LeaveSchema, AssetSchema, ActiveSessionSchema, IncrementSchema, PayrollRecordSchema].forEach(schema => {
         schema.virtual('id').get(function () {
             return this._id.toHexString();
         });

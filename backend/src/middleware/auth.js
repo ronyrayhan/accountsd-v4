@@ -17,9 +17,19 @@ const comparePassword = async (password, hash) => {
 };
 
 const createToken = (user) => {
-    return jwt.sign({ id: user.id, username: user.username, role: user.role }, SECRET_KEY, {
-        expiresIn: '30d'
-    });
+    const accessToken = jwt.sign(
+        { id: user.id, username: user.username, role: user.role },
+        SECRET_KEY,
+        { expiresIn: '15m' } // Short-lived access token
+    );
+
+    const refreshToken = jwt.sign(
+        { id: user.id, username: user.username },
+        SECRET_KEY,
+        { expiresIn: '7d' } // Long-lived refresh token
+    );
+
+    return { accessToken, refreshToken };
 };
 
 /**

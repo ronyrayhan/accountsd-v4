@@ -7,6 +7,7 @@ exports.getEmployees = async (req, res) => {
         const employees = await Employee.find().sort({ emp_id: 1 }).populate('increments');
         res.json(employees);
     } catch (error) {
+        console.error('getEmployees Error:', error);
         res.status(500).json({ detail: error.message });
     }
 };
@@ -39,6 +40,7 @@ exports.getIncrements = async (req, res) => {
         const increments = await Increment.find().populate('employee_id').sort({ effective_date: -1 });
         res.json(increments);
     } catch (error) {
+        console.error('getIncrements Error:', error);
         res.status(500).json({ detail: error.message });
     }
 };
@@ -133,6 +135,7 @@ exports.getPayrollRecords = async (req, res) => {
         });
         res.json(mapped);
     } catch (error) {
+        console.error('getPayrollRecords Error:', error);
         res.status(500).json({ detail: error.message });
     }
 };

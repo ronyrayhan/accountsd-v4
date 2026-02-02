@@ -58,16 +58,19 @@ const calculateBalanceAt = async (accountId, date) => {
  * - BDT transactions update the BDT balance.
  * - USD transactions update the USD balance IF no conversion happens.
  * - Exchange transactions (Buy/Sell USD) update the respective currency balance.
+ * 
+ * @param {string} accountId - The account ID to sync
+ * @param {object} session - Optional MongoDB session for transactional operations
  */
-const syncAccountBalance = async (accountId) => {
-    const account = await Account.findById(accountId);
+const syncAccountBalance = async (accountId, session = null) => {
+    const account = await Account.findById(accountId).session(session);
     if (!account) return;
 
     // Start with Opening Balances
     let bdt = Number(account.opening_balance_bdt || 0);
     let usd = Number(account.opening_balance_usd || 0);
 
-    const txns = await Transaction.find({ account_id: account._id });
+    const txns = await Transaction.find({ account_id: account._id }).session(session);
 
     for (const txn of txns) {
         const amt = Number(txn.amount || 0);
@@ -97,7 +100,7 @@ const syncAccountBalance = async (accountId) => {
     // Save the final calculated balances
     account.current_balance_bdt = bdt;
     account.current_balance_usd = usd;
-    await account.save();
+    await account.save({ session });
 
     // Automatic Summary Update (Addon Module)
     try {
@@ -110,6 +113,8 @@ const syncAccountBalance = async (accountId) => {
 };
 
 const createTransaction = async (req, res) => {
+    const { withTransaction } = require('../utils/transaction');
+
     try {
         const {
             description, amount, currency, type, account_id,
@@ -166,29 +171,46 @@ const createTransaction = async (req, res) => {
             }
         }
 
-        const transaction = await Transaction.create({
-            date: date || new Date(),
-            description,
-            amount,
-            currency,
-            type,
-            conversion_type,
-            conversion_rate: convRate,
-            converted_amount_bdt: convAmountBdt,
-            reference,
-            source_type,
-            account_id: account._id
+        // Execute with automatic transaction fallback
+        const transaction = await withTransaction(async (session) => {
+            const txnData = {
+                date: date || new Date(),
+                description,
+                amount,
+                currency,
+                type,
+                conversion_type,
+                conversion_rate: convRate,
+                converted_amount_bdt: convAmountBdt,
+                reference,
+                source_type,
+                account_id: account._id
+            };
+
+            const created = session
+                ? await Transaction.create([txnData], { session })
+                : await Transaction.create(txnData);
+
+            const txn = session ? created[0] : created;
+
+            await syncAccountBalance(account_id, session);
+
+            if (req.file) {
+                const attachmentData = {
+                    file_path: req.file.path,
+                    filename: req.file.filename,
+                    transaction_id: txn._id
+                };
+
+                if (session) {
+                    await Attachment.create([attachmentData], { session });
+                } else {
+                    await Attachment.create(attachmentData);
+                }
+            }
+
+            return txn;
         });
-
-        await syncAccountBalance(account_id);
-
-        if (req.file) {
-            await Attachment.create({
-                file_path: req.file.path,
-                filename: req.file.filename,
-                transaction_id: transaction._id
-            });
-        }
 
         await logEvent(req.user.username, 'New Entry', `Created ${type} entry [${transaction.serial_number}] in account ${account.name}: ${description} (${currency} ${amount})`, 'entry');
 
@@ -199,6 +221,8 @@ const createTransaction = async (req, res) => {
 };
 
 const handleTransfer = async (req, res) => {
+    const { withTransaction } = require('../utils/transaction');
+
     try {
         const {
             description, amount, currency, account_id,
@@ -215,102 +239,141 @@ const handleTransfer = async (req, res) => {
         const transfer_id = uuidv4();
         const amt = parseFloat(amount);
 
-        // Case 1: Direct Transfer (No Currency Conversion)
-        // e.g., Moving USD from Account A to USD in Account B
-        if (conversion_type === 'None') {
-            if (sender._id.toString() === receiver._id.toString()) {
-                return res.status(400).json({ detail: 'Cannot transfer to same account without conversion' });
-            }
-
-            const currentBal = currency === 'BDT' ? sender.current_balance_bdt : sender.current_balance_usd;
-            if (currentBal < amt) {
-                return res.status(400).json({ detail: 'Insufficient funds' });
-            }
-
-            await Transaction.create({
-                date: date || new Date(),
-                description: `Transfer ${currency} to ${receiver.name}`,
-                amount: amt, currency, type: 'Debit', account_id: sender._id, transfer_id, source_type: 'Transfer'
-            });
-
-            await Transaction.create({
-                date: date || new Date(),
-                description: `Transfer ${currency} from ${sender.name}`,
-                amount: amt, currency, type: 'Credit', account_id: receiver._id, transfer_id, source_type: 'Transfer'
-            });
-
-        } else {
-            // Case 2: Transfer with Conversion (Exchange)
-            let convRate = conversion_rate ? parseFloat(conversion_rate) : null;
-            if (conversion_type === 'Auto') {
-                convRate = parseFloat(await getSetting('usd_bdt_rate', '110'));
-            }
-
-            const bdtAmount = currency === 'BDT' ? amt : amt * convRate;
-
-            // Sub-case 2A: Same Account Exchange (Buying USD with BDT)
-            if (sender._id.toString() === receiver._id.toString()) {
-                if (sender.current_balance_bdt < bdtAmount) {
-                    return res.status(400).json({ detail: `Insufficient BDT funds for conversion. Need ${bdtAmount}` });
+        // Execute all transfer operations with automatic transaction fallback
+        await withTransaction(async (session) => {
+            // Case 1: Direct Transfer (No Currency Conversion)
+            if (conversion_type === 'None') {
+                if (sender._id.toString() === receiver._id.toString()) {
+                    throw new Error('Cannot transfer to same account without conversion');
                 }
 
-                await Transaction.create({
-                    date: date || new Date(), description: `Convert BDT to USD from ${sender.name}`,
-                    amount: bdtAmount, currency: 'BDT', type: 'Debit', account_id: sender._id, transfer_id,
-                    source_type: 'Exchange', conversion_type, conversion_rate: convRate
-                });
+                const currentBal = currency === 'BDT' ? sender.current_balance_bdt : sender.current_balance_usd;
+                if (currentBal < amt) {
+                    throw new Error('Insufficient funds');
+                }
 
-                await Transaction.create({
-                    date: date || new Date(), description: `Convert BDT to USD to ${sender.name}`,
-                    amount: amt, currency: 'USD', type: 'Credit', account_id: sender._id, transfer_id,
-                    source_type: 'Exchange', conversion_type, conversion_rate: convRate, converted_amount_bdt: bdtAmount
-                });
+                const debitData = {
+                    date: date || new Date(),
+                    description: `Transfer ${currency} to ${receiver.name}`,
+                    amount: amt, currency, type: 'Debit', account_id: sender._id, transfer_id, source_type: 'Transfer'
+                };
+
+                const creditData = {
+                    date: date || new Date(),
+                    description: `Transfer ${currency} from ${sender.name}`,
+                    amount: amt, currency, type: 'Credit', account_id: receiver._id, transfer_id, source_type: 'Transfer'
+                };
+
+                if (session) {
+                    await Transaction.create([debitData], { session });
+                    await Transaction.create([creditData], { session });
+                } else {
+                    await Transaction.create(debitData);
+                    await Transaction.create(creditData);
+                }
 
             } else {
-                // Sub-case 2B: Transfer to different account WITH conversion
-                if (sender.current_balance_bdt < bdtAmount) {
-                    return res.status(400).json({ detail: `Insufficient BDT funds for conversion transfer. Need ${bdtAmount}` });
+                // Case 2: Transfer with Conversion (Exchange)
+                let convRate = conversion_rate ? parseFloat(conversion_rate) : null;
+                if (conversion_type === 'Auto') {
+                    convRate = parseFloat(await getSetting('usd_bdt_rate', '110'));
                 }
 
-                await Transaction.create({
-                    date: date || new Date(), description: `Transfer BDT from ${sender.name}`,
-                    amount: bdtAmount, currency: 'BDT', type: 'Debit', account_id: sender._id, transfer_id,
-                    source_type: 'Transfer', conversion_type, conversion_rate: convRate
-                });
+                const bdtAmount = currency === 'BDT' ? amt : amt * convRate;
 
-                await Transaction.create({
-                    date: date || new Date(), description: `Transfer BDT to ${receiver.name}`,
-                    amount: bdtAmount, currency: 'BDT', type: 'Credit', account_id: receiver._id, transfer_id,
-                    source_type: 'Transfer', conversion_type, conversion_rate: convRate
-                });
+                // Sub-case 2A: Same Account Exchange (Buying USD with BDT)
+                if (sender._id.toString() === receiver._id.toString()) {
+                    if (sender.current_balance_bdt < bdtAmount) {
+                        throw new Error(`Insufficient BDT funds for conversion. Need ${bdtAmount}`);
+                    }
 
-                await Transaction.create({
-                    date: date || new Date(), description: `Transfer to Convert USD to BDT from ${receiver.name}`,
-                    amount: bdtAmount, currency: 'BDT', type: 'Debit', account_id: receiver._id, transfer_id,
-                    source_type: 'Exchange', conversion_type, conversion_rate: convRate
-                });
+                    const transactions = [
+                        {
+                            date: date || new Date(), description: `Convert BDT to USD from ${sender.name}`,
+                            amount: bdtAmount, currency: 'BDT', type: 'Debit', account_id: sender._id, transfer_id,
+                            source_type: 'Exchange', conversion_type, conversion_rate: convRate
+                        },
+                        {
+                            date: date || new Date(), description: `Convert BDT to USD to ${sender.name}`,
+                            amount: amt, currency: 'USD', type: 'Credit', account_id: sender._id, transfer_id,
+                            source_type: 'Exchange', conversion_type, conversion_rate: convRate, converted_amount_bdt: bdtAmount
+                        }
+                    ];
 
-                await Transaction.create({
-                    date: date || new Date(), description: `USD convert from ${receiver.name}`,
-                    amount: amt, currency: 'USD', type: 'Credit', account_id: receiver._id, transfer_id,
-                    source_type: 'Exchange', conversion_type, conversion_rate: convRate, converted_amount_bdt: bdtAmount
-                });
+                    if (session) {
+                        for (const txn of transactions) {
+                            await Transaction.create([txn], { session });
+                        }
+                    } else {
+                        for (const txn of transactions) {
+                            await Transaction.create(txn);
+                        }
+                    }
+
+                } else {
+                    // Sub-case 2B: Transfer to different account WITH conversion
+                    if (sender.current_balance_bdt < bdtAmount) {
+                        throw new Error(`Insufficient BDT funds for conversion transfer. Need ${bdtAmount}`);
+                    }
+
+                    const transactions = [
+                        {
+                            date: date || new Date(), description: `Transfer BDT from ${sender.name}`,
+                            amount: bdtAmount, currency: 'BDT', type: 'Debit', account_id: sender._id, transfer_id,
+                            source_type: 'Transfer', conversion_type, conversion_rate: convRate
+                        },
+                        {
+                            date: date || new Date(), description: `Transfer BDT to ${receiver.name}`,
+                            amount: bdtAmount, currency: 'BDT', type: 'Credit', account_id: receiver._id, transfer_id,
+                            source_type: 'Transfer', conversion_type, conversion_rate: convRate
+                        },
+                        {
+                            date: date || new Date(), description: `Transfer to Convert USD to BDT from ${receiver.name}`,
+                            amount: bdtAmount, currency: 'BDT', type: 'Debit', account_id: receiver._id, transfer_id,
+                            source_type: 'Exchange', conversion_type, conversion_rate: convRate
+                        },
+                        {
+                            date: date || new Date(), description: `USD convert from ${receiver.name}`,
+                            amount: amt, currency: 'USD', type: 'Credit', account_id: receiver._id, transfer_id,
+                            source_type: 'Exchange', conversion_type, conversion_rate: convRate, converted_amount_bdt: bdtAmount
+                        }
+                    ];
+
+                    if (session) {
+                        for (const txn of transactions) {
+                            await Transaction.create([txn], { session });
+                        }
+                    } else {
+                        for (const txn of transactions) {
+                            await Transaction.create(txn);
+                        }
+                    }
+                }
             }
-        }
 
-        await syncAccountBalance(sender._id);
-        await syncAccountBalance(receiver._id);
+            await syncAccountBalance(sender._id, session);
+            await syncAccountBalance(receiver._id, session);
 
-        if (req.file) {
-            const tx = await Transaction.findOne({ transfer_id });
-            if (tx) {
-                await Attachment.create({
-                    file_path: req.file.path,
-                    filename: req.file.filename,
-                    transaction_id: tx._id
-                });
+            if (req.file) {
+                const tx = session
+                    ? await Transaction.findOne({ transfer_id }).session(session)
+                    : await Transaction.findOne({ transfer_id });
+
+                if (tx) {
+                    const attachmentData = {
+                        file_path: req.file.path,
+                        filename: req.file.filename,
+                        transaction_id: tx._id
+                    };
+
+                    if (session) {
+                        await Attachment.create([attachmentData], { session });
+                    } else {
+                        await Attachment.create(attachmentData);
+                    }
+                }
             }
-        }
+        });
 
         res.status(201).json({ message: 'Transfer successful' });
         await logEvent(req.user.username, 'Transfer', `Transferred ${amount} ${currency} from ${sender.name} to ${receiver.name}`, 'entry');
