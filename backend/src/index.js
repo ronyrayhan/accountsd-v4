@@ -31,10 +31,16 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
             imgSrc: ["'self'", "data:", "blob:", "http://localhost:5000"],
-            connectSrc: ["'self'", "http://localhost:5000", "ws://localhost:5173"]
+            connectSrc: ["'self'", "http://localhost:5000", "ws://localhost:5173"],
+            frameSrc: ["'self'", "http://localhost:5000"], // Allow framing backend content
+            frameAncestors: ["'self'", "http://localhost:5173"] // Allow frontend to frame backend
         }
-    }
+    },
+    frameguard: false // Disable X-Frame-Options to allow framing from different origin (localhost:5173)
 }));
+
+// Serve uploads folder for public viewing of policies/training materials
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use(mongoSanitize());
 app.use(cors({
     origin: true, // Reflects the request origin
@@ -51,8 +57,8 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 app.use(cookieParser()); // Parse cookies for refresh token
-app.use(express.json({ limit: '10kb' })); // Limit body size
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static Files removed from public access for security.
 // They are now served via the authenticated /api/files/:filename route.

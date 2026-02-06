@@ -1,0 +1,16 @@
+{"level":"info","message":"Default permissions and checks completed","timestamp":"2026-02-06 23:56:39"}
+{"level":"info","message":"Server is running on port 5000","timestamp":"2026-02-06 23:56:39"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-06 23:56:39"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-06 23:56:39"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-06 23:56:39"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-06 23:56:39"}
+{"level":"warn","message":"Redis reconnection attempts exhausted, running without cache","timestamp":"2026-02-06 23:56:39"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-06 23:56:39"}
+{"error":"","level":"warn","message":"Redis initialization failed, running without cache","timestamp":"2026-02-06 23:56:39"}
+{"action":"Login","detail":"User successfully logged into the system","event_type":"audit","level":"info","message":"System Event","timestamp":"2026-02-06 23:56:42","type":"auth","user":"admin"}
+{"isAdmin":true,"level":"info","message":"GetMe Debug","role":"Admin","timestamp":"2026-02-06 23:56:42","userId":"698623f17b67ec8e7aa7f19c","userRole":"admin","username":"admin"}
+{"level":"info","message":"GetMe Navigation Debug","modules":["Dashboard","Ledger","Statements","Accounting","Reports","Settings","Users","Billing","Payroll","Assets","ActiveSessions","HR","Summaries","Approvals","Admin","ESS"],"modulesCount":16,"navigationGroupCount":5,"navigationTitles":["Main Menu","Human Resources","Employee Self Service","Approver Center","System Management"],"timestamp":"2026-02-06 23:56:42","userId":"698623f17b67ec8e7aa7f19c","username":"admin"}
+{"isAdmin":true,"level":"info","message":"GetMe Debug","role":"Admin","timestamp":"2026-02-06 23:57:12","userId":"698623f17b67ec8e7aa7f19c","userRole":"admin","username":"admin"}
+{"level":"info","message":"GetMe Navigation Debug","modules":["Dashboard","Ledger","Statements","Accounting","Reports","Settings","Users","Billing","Payroll","Assets","ActiveSessions","HR","Summaries","Approvals","Admin","ESS"],"modulesCount":16,"navigationGroupCount":5,"navigationTitles":["Main Menu","Human Resources","Employee Self Service","Approver Center","System Management"],"timestamp":"2026-02-06 23:57:12","userId":"698623f17b67ec8e7aa7f19c","username":"admin"}
+{"isAdmin":true,"level":"info","message":"GetMe Debug","role":"Admin","timestamp":"2026-02-06 23:57:12","userId":"698623f17b67ec8e7aa7f19c","userRole":"admin","username":"admin"}
+{"level":"info","message":"GetMe Navigation Debug","modules":["Dashboard","Ledger","Statements","Accounting","Reports","Settings","Users","Billing","Payroll","Assets","ActiveSessions","HR","Summaries","Approvals","Admin","ESS"],"modulesCount":16,"navigationGroupCount":5,"navigationTitles":["Main Menu","Human Resources","Employee Self Service","Approver Center","System Management"],"timestamp":"2026-02-06 23:57:12","userId":"698623f17b67ec8e7aa7f19c","username":"admin"}

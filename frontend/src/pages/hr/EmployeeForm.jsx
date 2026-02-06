@@ -36,11 +36,48 @@ const EmployeeForm = () => {
             current_salary: 0,
             bank_name: '',
             bank_account: ''
-        }
+        },
+        account_username: '',
+        account_password: ''
     });
 
     const [loading, setLoading] = useState(isEdit);
     const [leaveBalances, setLeaveBalances] = useState([]);
+
+    // Master data states
+    const [departments, setDepartments] = useState([]);
+    const [designations, setDesignations] = useState([]);
+    const [positions, setPositions] = useState([]);
+    const [employees, setEmployees] = useState([]);
+    const [shifts, setShifts] = useState([]);
+
+    const fetchInitialData = async () => {
+        try {
+            const [deptRes, desigRes, posRes, empRes, shiftRes, typeRes] = await Promise.all([
+                api.get('/hr/departments'),
+                api.get('/hr/designations'),
+                api.get('/hr/positions'),
+                api.get('/hr/employees?status=Active'),
+                api.get('/hr/shifts'),
+                api.get('/hr/leave-types')
+            ]);
+            setDepartments(deptRes.data);
+            setDesignations(desigRes.data);
+            setPositions(posRes.data);
+            setEmployees(empRes.data);
+            setShifts(shiftRes.data);
+
+            if (!isEdit) {
+                const defaults = typeRes.data.map(type => ({
+                    leave_type: type,
+                    total_quota: type.default_days
+                }));
+                setLeaveBalances(defaults);
+            }
+        } catch (err) {
+            console.error('Error fetching initial form data:', err);
+        }
+    };
 
     useEffect(() => {
         if (isEdit) {
@@ -48,7 +85,6 @@ const EmployeeForm = () => {
                 try {
                     const res = await api.get(`/hr/employees/${id}`);
                     const data = res.data;
-                    // Format dates for input fields
                     if (data.employment_info?.joining_date) {
                         data.employment_info.joining_date = new Date(data.employment_info.joining_date).toISOString().split('T')[0];
                     }
@@ -66,77 +102,73 @@ const EmployeeForm = () => {
                     console.error('Error fetching employee:', err);
                     alert('Failed to load employee data');
                 } finally {
-                    // Fetch linked user if edit mode
-                    if (isEdit) {
-                        try {
-                            const userRes = await api.get(`/admin/users/employee/${id}`);
-                            setForm(prev => ({ ...prev, user_account: userRes.data }));
-                        } catch (err) {
-                            console.log('No user account linked');
-                        }
-
-                        // Fetch Leave Balances (Quotas)
-                        try {
-                            const balRes = await api.get(`/hr/leaves/balances/${id}`);
-                            setLeaveBalances(balRes.data);
-                        } catch (err) {
-                            console.error('Error fetching leave balances:', err);
-                        }
+                    try {
+                        const balRes = await api.get(`/hr/leaves/balances/${id}`);
+                        setLeaveBalances(balRes.data);
+                    } catch (err) {
+                        console.error('Error fetching leave balances:', err);
                     }
                     setLoading(false);
                 }
             };
             fetchEmployee();
         }
+        fetchInitialData();
     }, [id, isEdit]);
 
-    const [employees, setEmployees] = useState([]);
-    const [shifts, setShifts] = useState([]); // NEW
-    const [showUserModal, setShowUserModal] = useState(false);
-    const [userForm, setUserForm] = useState({ username: '', password: '', role: 'ESS' });
-    useEffect(() => {
-        const fetchInitialData = async () => {
-            try {
-                // Fetch All Active Employees (for Manager dropdown)
-                const empRes = await api.get('/hr/employees?status=Active');
-                setEmployees(empRes.data);
-
-                // Fetch All Leave Types (to set default quotas)
-                const typeRes = await api.get('/hr/leave-types');
-
-                // Fetch All Shifts
-                const shiftRes = await api.get('/hr/shifts');
-                setShifts(shiftRes.data);
-
-                if (isEdit) {
-                    // Handled in the separate ID-based useEffect
-                } else {
-                    // For new employees, pre-fill leaveBalances with defaults
-                    const defaults = typeRes.data.map(type => ({
-                        leave_type: type,
-                        total_quota: type.default_days
-                    }));
-                    setLeaveBalances(defaults);
-                }
-            } catch (err) {
-                console.error('Error fetching initial form data:', err);
-            }
-        };
-        fetchInitialData();
-    }, [isEdit]);
-
-
     const handleChange = (section, field, value) => {
-        if (section) {
-            setForm(prev => ({
-                ...prev,
-                [section]: {
-                    ...prev[section],
-                    [field]: value
+        setForm(prev => {
+            let updatedForm = { ...prev };
+            if (section) {
+                updatedForm[section] = { ...updatedForm[section], [field]: value };
+            } else {
+                updatedForm[field] = value;
+            }
+
+            // Auto-generate credentials for NEW employees
+            if (!isEdit && (field === 'full_name' || section === 'personal_info' && field === 'full_name' || field === 'joining_date' || section === 'employment_info' && field === 'joining_date')) {
+                const name = updatedForm.personal_info.full_name;
+                const date = updatedForm.employment_info.joining_date;
+
+                if (name) {
+                    updatedForm.account_username = name;
+                    if (date) {
+                        try {
+                            const dateStr = date.split('T')[0].replace(/-/g, '');
+                            updatedForm.account_password = `SD@${name}${dateStr}#`;
+                        } catch (e) {
+                            console.error('Date parsing error', e);
+                        }
+                    }
                 }
-            }));
-        } else {
-            setForm(prev => ({ ...prev, [field]: value }));
+            }
+            return updatedForm;
+        });
+    };
+
+    const handleCreateMaster = async (type) => {
+        const name = prompt(`Enter new ${type} name:`);
+        if (!name) return;
+
+        try {
+            let res;
+            if (type === 'Department') {
+                const prefix = prompt(`Enter ID Prefix for ${name} (e.g. SD for Software Dev):`);
+                if (!prefix) return;
+                res = await api.post('/hr/departments', { name, id_prefix: prefix });
+                setDepartments(prev => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)));
+                handleChange('employment_info', 'current_department', name);
+            } else if (type === 'Designation') {
+                res = await api.post('/hr/designations', { name });
+                setDesignations(prev => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)));
+                handleChange('employment_info', 'current_designation', name);
+            } else if (type === 'Position') {
+                res = await api.post('/hr/positions', { name });
+                setPositions(prev => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)));
+                handleChange('employment_info', 'joining_position', name);
+            }
+        } catch (err) {
+            alert('Failed to create: ' + (err.response?.data?.message || err.message));
         }
     };
 
@@ -250,12 +282,10 @@ const EmployeeForm = () => {
                                         <label className="form-label small fw-bold text-muted">Joining ID</label>
                                         <input
                                             type="text"
-                                            className="form-control rounded-3 font-monospace"
-                                            placeholder="EMP-XXX"
+                                            className="form-control rounded-3 font-monospace bg-light"
+                                            placeholder="Auto-generated"
                                             value={form.employee_id}
-                                            onChange={e => handleChange(null, 'employee_id', e.target.value)}
-                                            required
-                                            readOnly={isEdit}
+                                            readOnly
                                         />
                                     </div>
                                     <div className="col-md-6">
@@ -357,33 +387,54 @@ const EmployeeForm = () => {
                                 <div className="row g-3">
                                     <div className="col-md-4">
                                         <label className="form-label small fw-bold text-muted">Joining Position</label>
-                                        <input
-                                            type="text"
-                                            className="form-control rounded-3"
-                                            value={form.employment_info.joining_position}
-                                            onChange={e => handleChange('employment_info', 'joining_position', e.target.value)}
-                                            required
-                                        />
+                                        <div className="input-group">
+                                            <select
+                                                className="form-select rounded-start-3"
+                                                value={form.employment_info.joining_position}
+                                                onChange={e => handleChange('employment_info', 'joining_position', e.target.value)}
+                                                required
+                                            >
+                                                <option value="">Select Position...</option>
+                                                {positions.map(p => <option key={p._id} value={p.name}>{p.name}</option>)}
+                                            </select>
+                                            <button className="btn btn-outline-secondary rounded-end-3" type="button" onClick={() => handleCreateMaster('Position')}>
+                                                <i className="fa-solid fa-plus"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="col-md-4">
                                         <label className="form-label small fw-bold text-muted">Current Designation</label>
-                                        <input
-                                            type="text"
-                                            className="form-control rounded-3"
-                                            value={form.employment_info.current_designation}
-                                            onChange={e => handleChange('employment_info', 'current_designation', e.target.value)}
-                                            required
-                                        />
+                                        <div className="input-group">
+                                            <select
+                                                className="form-select rounded-start-3"
+                                                value={form.employment_info.current_designation}
+                                                onChange={e => handleChange('employment_info', 'current_designation', e.target.value)}
+                                                required
+                                            >
+                                                <option value="">Select Designation...</option>
+                                                {designations.map(d => <option key={d._id} value={d.name}>{d.name}</option>)}
+                                            </select>
+                                            <button className="btn btn-outline-secondary rounded-end-3" type="button" onClick={() => handleCreateMaster('Designation')}>
+                                                <i className="fa-solid fa-plus"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="col-md-4">
                                         <label className="form-label small fw-bold text-muted">Department</label>
-                                        <input
-                                            type="text"
-                                            className="form-control rounded-3"
-                                            value={form.employment_info.current_department}
-                                            onChange={e => handleChange('employment_info', 'current_department', e.target.value)}
-                                            required
-                                        />
+                                        <div className="input-group">
+                                            <select
+                                                className="form-select rounded-start-3"
+                                                value={form.employment_info.current_department}
+                                                onChange={e => handleChange('employment_info', 'current_department', e.target.value)}
+                                                required
+                                            >
+                                                <option value="">Select Department...</option>
+                                                {departments.map(d => <option key={d._id} value={d.name}>{d.name}</option>)}
+                                            </select>
+                                            <button className="btn btn-outline-secondary rounded-end-3" type="button" onClick={() => handleCreateMaster('Department')}>
+                                                <i className="fa-solid fa-plus"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="col-md-4">
                                         <label className="form-label small fw-bold text-muted">Joining Date</label>
@@ -535,25 +586,29 @@ const EmployeeForm = () => {
                         <div className="card border-0 shadow-sm rounded-4 mb-4">
                             <div className="card-body p-4">
                                 <h6 className="fw-bold text-muted x-small mb-4 text-uppercase">System Access</h6>
-                                {form.user_account ? (
-                                    <div className="p-3 bg-success-subtle rounded-3 border border-success border-opacity-10 text-center">
-                                        <i className="fa-solid fa-circle-check text-success h4 mb-2 d-block"></i>
-                                        <span className="fw-bold small d-block">Access Enabled</span>
-                                        <code className="extra-small text-success">@{form.user_account.username}</code>
+                                <div className="row g-3">
+                                    <div className="col-md-6">
+                                        <label className="form-label small fw-bold">System Username (ESS Account)</label>
+                                        <input
+                                            type="text"
+                                            className="form-control rounded-3"
+                                            value={form.account_username}
+                                            onChange={e => handleChange(null, 'account_username', e.target.value)}
+                                            placeholder="Auto-generated"
+                                        />
                                     </div>
-                                ) : (
-                                    <div className="text-center p-3 border border-dashed rounded-4">
-                                        <i className="fa-solid fa-user-lock text-muted h4 mb-2 d-block"></i>
-                                        <p className="extra-small text-muted mb-3">No system account linked. Employee cannot login to the system.</p>
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline-primary btn-sm rounded-pill fw-bold"
-                                            onClick={() => setShowUserModal(true)}
-                                        >
-                                            Create Access
-                                        </button>
+                                    <div className="col-md-6">
+                                        <label className="form-label small fw-bold">{isEdit ? 'Change Password' : 'Initial Password'}</label>
+                                        <input
+                                            type="text"
+                                            className="form-control rounded-3"
+                                            value={form.account_password}
+                                            onChange={e => handleChange(null, 'account_password', e.target.value)}
+                                            placeholder="Auto-generated"
+                                        />
                                     </div>
-                                )}
+                                    {isEdit && <div className="form-text extra-small mt-0 text-muted">Leave password empty if you don't want to change it. Username change is currently disabled for security.</div>}
+                                </div>
                             </div>
                         </div>
 
@@ -565,64 +620,6 @@ const EmployeeForm = () => {
                 </div>
             </form>
 
-            {/* User Access Modal */}
-            {
-                showUserModal && (
-                    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                        <div className="modal-dialog modal-dialog-centered">
-                            <form className="modal-content border-0 shadow-lg rounded-4" onSubmit={handleCreateAccess}>
-                                <div className="modal-header border-0 p-4 pb-0">
-                                    <h5 className="fw-bold m-0">Enable System Access</h5>
-                                </div>
-                                <div className="modal-body p-4">
-                                    <p className="small text-muted mb-4">Set up a system account for this employee. They will use these credentials to login to the platform.</p>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold">Username</label>
-                                        <input
-                                            type="text"
-                                            className="form-control rounded-3"
-                                            required
-                                            value={userForm.username}
-                                            onChange={e => setUserForm({ ...userForm, username: e.target.value })}
-                                            placeholder="e.g. john.doe"
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold">Initial Password</label>
-                                        <input
-                                            type="password"
-                                            className="form-control rounded-3"
-                                            required
-                                            value={userForm.password}
-                                            onChange={e => setUserForm({ ...userForm, password: e.target.value })}
-                                            placeholder="••••••••"
-                                        />
-                                        <div className="form-text extra-small mt-2">Employee can change this later from their dashboard.</div>
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold">Permission Role</label>
-                                        <select
-                                            className="form-select rounded-3"
-                                            required
-                                            value={userForm.role}
-                                            onChange={e => setUserForm({ ...userForm, role: e.target.value })}
-                                        >
-                                            <option value="Viewer">Viewer</option>
-                                            <option value="Admin">Admin</option>
-                                            <option value="HR">HR Manager</option>
-                                            <option value="Accountant">Accountant</option>
-                                        </select>
-                                        <div className="form-text extra-small mt-2">Roles define module-level access permissions.</div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer border-0 p-4 pt-0">
-                                    <button type="submit" className="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm">Enable System Access</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
         </Layout>
     );
 };

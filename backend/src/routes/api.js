@@ -21,6 +21,7 @@ const authController = require('../controllers/authController');
 const reportController = require('../controllers/reportController');
 const settingController = require('../controllers/settingController');
 const summaryController = require('../controllers/summaryController');
+const onboardingController = require('../controllers/onboardingController');
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
@@ -103,8 +104,8 @@ router.post('/transactions/import', authenticate, authorize('Accounting'), uploa
 
 // SETTINGS
 router.get('/settings', authenticate, authorize('Settings'), settingController.getAllSettings);
-router.get('/settings/:key', authenticate, settingController.getSetting);
-router.post('/settings', authenticate, authorize('Settings'), settingController.setSetting);
+router.get('/settings/:key', authenticate, authorize(['Settings', 'Admin']), settingController.getSetting);
+router.post('/settings', authenticate, authorize('Admin'), settingController.setSetting);
 
 // REPORTS & STATS
 router.get('/reports/trial-balance', authenticate, authorize('Reports'), reportController.getTrialBalance);
@@ -180,7 +181,18 @@ router.delete('/assets/:id', authenticate, authorize('Admin'), assetController.d
 
 // HR MANAGEMENT - New comprehensive HR module
 const hrController = require('../controllers/hrController');
+const masterController = require('../controllers/masterController');
 const { authenticateDevice } = require('../middleware/deviceAuth');
+
+// Master Data
+router.get('/hr/departments', authenticate, masterController.getDepartments);
+router.post('/hr/departments', authenticate, authorize(['HR', 'Admin']), masterController.createDepartment);
+
+router.get('/hr/designations', authenticate, masterController.getDesignations);
+router.post('/hr/designations', authenticate, authorize(['HR', 'Admin']), masterController.createDesignation);
+
+router.get('/hr/positions', authenticate, masterController.getPositions);
+router.post('/hr/positions', authenticate, authorize(['HR', 'Admin']), masterController.createPosition);
 
 // RFID Attendance
 router.post('/hr/attendance/rfid-punch', authenticateDevice, hrController.rfidPunch);
@@ -210,10 +222,13 @@ router.post('/hr/career-change', authenticate, authorize(['HR', 'Admin']), hrCon
 
 // Attendance Management
 router.get('/hr/attendance', authenticate, authorize(['HR', 'Admin']), hrController.getAttendance);
+router.post('/hr/attendance/override', authenticate, authorize(['HR', 'Admin']), hrController.overrideAttendance);
 
 // Leave Requests
 const attendanceController = require('../controllers/attendanceController');
 
+router.get('/hr/leaves/all-balances', authenticate, authorize(['HR', 'Admin']), leaveController.getAllBalances);
+router.post('/hr/leaves/resync-all', authenticate, authorize(['HR', 'Admin']), leaveController.resyncAllBalances);
 router.get('/hr/leaves/me/:employee_id', authenticate, leaveController.getMyLeaves);
 router.get('/hr/leaves/balances/:employee_id', authenticate, leaveController.getMyBalances);
 router.post('/hr/leaves/allocate', authenticate, authorize(['HR', 'Admin']), leaveController.allocateLeaves); // NEW
@@ -226,17 +241,27 @@ router.get('/hr/leaves', authenticate, authorize(['HR', 'Admin']), hrController.
 // HR Dashboard
 router.get('/hr/dashboard/stats', authenticate, authorize(['HR', 'Admin', 'Dashboard']), hrController.getDashboardStats);
 
+// ONBOARDING (HR/Admin)
+router.get('/onboarding/content', authenticate, onboardingController.getContent);
+router.post('/onboarding/content', authenticate, authorize(['HR', 'Admin']), upload.any(), onboardingController.createContent);
+router.put('/onboarding/content/:id', authenticate, authorize(['HR', 'Admin']), upload.any(), onboardingController.updateContent);
+router.delete('/onboarding/content/:id', authenticate, authorize(['HR', 'Admin']), onboardingController.deleteContent);
+router.get('/onboarding/progress', authenticate, authorize(['HR', 'Admin']), onboardingController.getAllProgress);
+router.get('/onboarding/progress/:id', authenticate, authorize(['HR', 'Admin']), onboardingController.getEmployeeOnboarding);
+router.post('/onboarding/reset/:employee_id', authenticate, authorize(['HR', 'Admin']), onboardingController.resetEmployeeOnboarding);
+
 // SUMMARIES (ADDON)
-router.get('/summaries/daily', authenticate, summaryController.getDailySummaries);
-router.get('/summaries/monthly', authenticate, summaryController.getMonthlySummaries);
-router.get('/summaries/export', authenticate, summaryController.exportSummaries);
+router.get('/summaries/daily', authenticate, authorize(['Summaries', 'Admin']), summaryController.getDailySummaries);
+router.get('/summaries/monthly', authenticate, authorize(['Summaries', 'Admin']), summaryController.getMonthlySummaries);
+router.get('/summaries/export', authenticate, authorize(['Summaries', 'Admin']), summaryController.exportSummaries);
 router.post('/summaries/sync', authenticate, authorize('Admin'), async (req, res) => {
     try {
         const { accountId, date } = req.body;
         await summaryController.syncSummaries(accountId, date || new Date());
         res.json({ message: 'Sync successful' });
     } catch (err) {
-        res.status(500).json({ detail: err.message });
+        require('../utils/logger').logger.error('Sync Error', { err: err.message });
+        res.status(500).json({ detail: 'Error during summary synchronization' });
     }
 });
 

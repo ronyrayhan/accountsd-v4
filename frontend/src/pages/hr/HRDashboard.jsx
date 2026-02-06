@@ -85,33 +85,47 @@ const HRDashboard = () => {
                 <div className="col-md-3">
                     <div className="card border-0 shadow-sm p-4 h-100">
                         <div className="d-flex justify-content-between mb-3">
-                            <div className="stats-icon-box bg-warning bg-opacity-10 text-warning">
-                                <i className="fa-solid fa-umbrella-beach"></i>
+                            <div className="stats-icon-box bg-danger bg-opacity-10 text-danger">
+                                <i className="fa-solid fa-user-xmark"></i>
                             </div>
-                            <span className="badge bg-warning-subtle text-warning rounded-pill align-self-start">Action Required</span>
+                            <span className="badge bg-danger-subtle text-danger rounded-pill align-self-start">Alert</span>
                         </div>
-                        <h6 className="text-muted fw-bold text-uppercase x-small mb-1">Pending Leaves</h6>
-                        <h2 className="fw-bold text-dark mb-0">{stats.pending_leaves}</h2>
-                        <div className="mt-2">
-                            <Link to="/hr/leaves" className="text-decoration-none small fw-bold text-primary">
-                                Review Requests <i className="fa-solid fa-arrow-right ms-1 x-small"></i>
-                            </Link>
+                        <h6 className="text-muted fw-bold text-uppercase x-small mb-1">Absent Today</h6>
+                        <h2 className="fw-bold text-dark mb-0">{stats.absent_today}</h2>
+                        <div className="mt-3 small text-muted">
+                            <i className="fa-solid fa-circle-exclamation me-1"></i> Unaccounted for
                         </div>
                     </div>
                 </div>
 
                 <div className="col-md-3">
-                    <div className="card border-0 shadow-sm p-4 h-100">
-                        <div className="d-flex justify-content-between mb-3">
-                            <div className="stats-icon-box bg-info bg-opacity-10 text-info">
-                                <i className="fa-solid fa-graduation-cap"></i>
+                    <div className="card border-0 shadow-sm p-3 h-100">
+                        <div className="d-flex flex-column h-100 gap-2">
+                            <div className="flex-fill rounded-4 bg-warning bg-opacity-10 p-3 d-flex flex-column justify-content-center position-relative overflow-hidden">
+                                <div className="d-flex justify-content-between align-items-center position-relative z-1">
+                                    <div>
+                                        <h6 className="text-warning-emphasis fw-bold text-uppercase x-small mb-1">Pending Leaves</h6>
+                                        <h2 className="fw-bold text-dark mb-0">{stats.pending_leaves}</h2>
+                                    </div>
+                                    <Link to="/hr/leaves" className="btn btn-sm btn-white text-warning shadow-sm rounded-pill px-3 fw-bold" style={{ fontSize: '0.75rem' }}>
+                                        Review <i className="fa-solid fa-arrow-right ms-1"></i>
+                                    </Link>
+                                </div>
+                                <i className="fa-solid fa-umbrella-beach position-absolute end-0 bottom-0 opacity-10 m-n2 text-warning" style={{ fontSize: '4rem' }}></i>
                             </div>
-                            <span className="badge bg-info-subtle text-info rounded-pill align-self-start">Pipeline</span>
-                        </div>
-                        <h6 className="text-muted fw-bold text-uppercase x-small mb-1">On Probation</h6>
-                        <h2 className="fw-bold text-dark mb-0">{stats.on_probation}</h2>
-                        <div className="mt-3 small text-muted">
-                            <i className="fa-solid fa-clock me-1"></i> Review due soon
+
+                            <div className="flex-fill rounded-4 bg-info bg-opacity-10 p-3 d-flex flex-column justify-content-center position-relative overflow-hidden">
+                                <div className="d-flex justify-content-between align-items-center position-relative z-1">
+                                    <div>
+                                        <h6 className="text-info-emphasis fw-bold text-uppercase x-small mb-1">On Probation</h6>
+                                        <h2 className="fw-bold text-dark mb-0">{stats.on_probation}</h2>
+                                    </div>
+                                    <div className="badge bg-white text-info shadow-sm rounded-pill px-2">
+                                        <i className="fa-solid fa-clock me-1"></i> Due Soon
+                                    </div>
+                                </div>
+                                <i className="fa-solid fa-graduation-cap position-absolute end-0 bottom-0 opacity-10 m-n2 text-info" style={{ fontSize: '4rem' }}></i>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -182,6 +196,19 @@ const HRDashboard = () => {
                                     <div>
                                         <h5 className="fw-bold mb-1 text-dark">Payroll Access</h5>
                                         <p className="text-muted small mb-0">Run payroll & salary processing</p>
+                                    </div>
+                                </div>
+                            </Link>
+                        </div>
+                        <div className="col-md-6">
+                            <Link to="/hr/onboarding" className="card border-0 shadow-sm p-4 text-decoration-none hover-lift h-100">
+                                <div className="d-flex align-items-center mb-0">
+                                    <div className="bg-info bg-opacity-10 text-info rounded-4 p-3 me-3">
+                                        <i className="fa-solid fa-plane-arrival fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h5 className="fw-bold mb-1 text-dark">Onboarding HUB</h5>
+                                        <p className="text-muted small mb-0">Setup training & track new joins</p>
                                     </div>
                                 </div>
                             </Link>

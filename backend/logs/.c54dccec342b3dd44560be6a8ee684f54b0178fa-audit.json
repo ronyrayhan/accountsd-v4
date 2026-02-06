@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\before onboarding\\backend\\logs\\.c54dccec342b3dd44560be6a8ee684f54b0178fa-audit.json",
+    "files": [
+        {
+            "date": 1770213538734,
+            "name": "C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\before onboarding\\backend\\logs\\error-2026-02-04.log",
+            "hash": "2809c181e1b810dc370c82b99bd12fd2a4475227e4ec432b372375f493e832d9"
+        },
+        {
+            "date": 1770229961115,
+            "name": "C:\\Users\\Amin\\.gemini\\antigravity\\scratch\\New folder\\git\\before onboarding\\backend\\logs\\error-2026-02-05.log",
+            "hash": "e0a111778f8df465f0d1bd3f0ea6f63f6568ce81c0ff5f093a7ff5e8247f2224"
+        }
+    ],
+    "hashType": "sha256"
+}

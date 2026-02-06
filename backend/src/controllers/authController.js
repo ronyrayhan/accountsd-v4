@@ -83,40 +83,71 @@ const terminateSession = async (req, res) => {
 const getMe = async (req, res) => {
     const { getCache, setCache } = require('../utils/cache');
     const { logger } = require('../utils/logger');
+    const { User, HREmployee, RolePermission, IndividualModulePermission, GlobalSetting } = require('../models');
 
     try {
-        const cacheKey = `user:${req.user._id}:permissions`;
+        const userId = req.user._id.toString();
+        const cacheKey = `user:${userId}:permissions:v7`;
 
-        // Try to get from cache first
-        let cachedData = await getCache(cacheKey);
-        if (cachedData) {
-            logger.debug('Permissions served from cache', { userId: req.user._id });
-            return res.json(cachedData);
-        }
+        // TEMPORARILY DISABLE CACHE FOR DEBUGGING
+        // let cachedData = await getCache(cacheKey);
+        // if (cachedData) {
+        //     logger.debug('Permissions served from cache', { userId });
+        //     return res.json(cachedData);
+        // }
+
+        const userRole = (req.user.role || '').toLowerCase().trim();
+        const isAdmin = userRole === 'admin';
+
+        logger.info('GetMe Debug', {
+            userId,
+            username: req.user.username,
+            role: req.user.role,
+            userRole,
+            isAdmin
+        });
 
         let permissions = [];
-        if (req.user.role === 'Admin') {
-            const modulesList = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'Assets', 'ActiveSessions', 'HR', 'Summaries'];
+        if (isAdmin) {
+            const modulesList = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'Assets', 'ActiveSessions', 'HR', 'Summaries', 'Approvals', 'Admin', 'ESS'];
             permissions = modulesList.map(m => ({ module: m, can_access: true }));
         } else {
             const rolePerms = await RolePermission.find({ role: req.user.role });
             const indPerms = await IndividualModulePermission.find({ user_id: req.user._id });
             const mergedMap = {};
+
+            // Default permission for ESS role
+            if (userRole === 'ess') {
+                mergedMap['ESS'] = true;
+            }
+
             rolePerms.forEach(p => mergedMap[p.module] = p.can_access);
             indPerms.forEach(p => mergedMap[p.module] = p.can_access);
             permissions = Object.keys(mergedMap).map(m => ({ module: m, can_access: mergedMap[m] }));
         }
 
+        // AUTO-DETECT MANAGER STATUS: If user has subordinates, grant 'Approvals' module
+        const userWithEmp = await User.findById(req.user._id).select('employee_id');
+        if (userWithEmp && userWithEmp.employee_id) {
+            const { HREmployee: HREmp } = require('../models/hrModels');
+            const subordinateCount = await HREmp.countDocuments({ 'employment_info.reporting_manager_id': userWithEmp.employee_id });
+            if (subordinateCount > 0) {
+                if (!permissions.find(p => p.module === 'Approvals')) {
+                    permissions.push({ module: 'Approvals', can_access: true });
+                }
+            }
+        }
+
         const canAccess = (moduleName) => {
-            if (req.user.role === 'Admin') return true;
+            if (isAdmin) return true;
             const p = permissions.find(p => p.module === moduleName);
             return p ? (p.can_access === true || p.can_access === 1) : false;
         };
 
-        // Server-defined UI structure (The Menu)
-        const menuGroups = [
+        const allMenuGroups = [
             {
                 title: 'Main Menu',
+                icon: 'fa-solid fa-layer-group',
                 items: [
                     { module: 'Dashboard', label: 'Dashboard', path: '/', icon: 'fa-solid fa-house' },
                     { module: 'Ledger', label: 'Transaction Ledger', path: '/ledger', icon: 'fa-solid fa-receipt' },
@@ -127,35 +158,62 @@ const getMe = async (req, res) => {
             },
             {
                 title: 'Human Resources',
+                icon: 'fa-solid fa-user-tie',
                 items: [
                     { module: 'HR', label: 'HR Dashboard', path: '/hr', icon: 'fa-solid fa-gauge-high' },
                     { module: 'HR', label: 'Employee Directory', path: '/hr/employees', icon: 'fa-solid fa-user-group' },
-                    { module: 'HR', label: 'Attendance Records', path: '/hr/attendance', icon: 'fa-solid fa-clock' },
+                    { module: 'HR', label: 'Attendance Management', path: '/hr/attendance', icon: 'fa-solid fa-clock' },
                     { module: 'HR', label: 'Leave Center', path: '/hr/leaves', icon: 'fa-solid fa-umbrella-beach' },
+                    { module: 'HR', label: 'Leave Settings', path: '/hr/leave-settings', icon: 'fa-solid fa-sliders' },
+                    { module: 'HR', label: 'Shift Management', path: '/hr/shifts', icon: 'fa-solid fa-business-time' },
+                    { module: 'HR', label: 'Onboarding Center', path: '/hr/onboarding', icon: 'fa-solid fa-passport' },
                     { module: 'Payroll', label: 'Payroll Center', path: '/payroll', icon: 'fa-solid fa-file-invoice-dollar' },
                     { module: 'Assets', label: 'Asset Tracking', path: '/assets', icon: 'fa-solid fa-boxes-stacked' }
                 ]
             },
             {
-                title: 'System Control',
+                title: 'Employee Self Service',
+                icon: 'fa-solid fa-id-card',
+                items: [
+                    { module: 'ESS', label: 'My Dashboard', path: '/my-dashboard', icon: 'fa-solid fa-house' },
+                    { module: 'ESS', label: 'My Attendance', path: '/my-attendance', icon: 'fa-solid fa-fingerprint' },
+                    { module: 'ESS', label: 'Leave Center', path: '/my-leaves', icon: 'fa-solid fa-umbrella-beach' },
+                    { module: 'ESS', label: 'My Profile', path: '/my-profile', icon: 'fa-solid fa-user-circle' }
+                ]
+            },
+            {
+                title: 'Approver Center',
+                icon: 'fa-solid fa-clipboard-check',
+                items: [
+                    { module: 'Approvals', label: 'Team Requests', path: '/approvals/leaves', icon: 'fa-solid fa-clipboard-check' },
+                    { module: 'Approvals', label: 'My Subordinates', path: '/approvals/team', icon: 'fa-solid fa-users-rectangle' },
+                    { module: 'Approvals', label: 'Apply for Team', path: '/approvals/apply-for', icon: 'fa-solid fa-user-plus' }
+                ]
+            },
+            {
+                title: 'System Management',
+                icon: 'fa-solid fa-screwdriver-wrench',
                 items: [
                     { module: 'Settings', label: 'Global Settings', path: '/settings', icon: 'fa-solid fa-gears' },
-                    { module: 'AuditTrail', label: 'Audit Trail', path: '/logs', icon: 'fa-solid fa-shield-halved', adminOnly: true },
-                    { module: 'ActiveSessions', label: 'Active Sessions', path: '/active-sessions', icon: 'fa-solid fa-network-wired', adminOnly: true }
+                    { module: 'ActiveSessions', label: 'Active Sessions', path: '/active-sessions', icon: 'fa-solid fa-user-clock' },
+                    { module: 'Admin', label: 'Audit Logs', path: '/logs', icon: 'fa-solid fa-list-check', adminOnly: true }
                 ]
             }
         ];
 
-        // Filter navigation based on permissions
-        const navigation = menuGroups.map(group => ({
-            ...group,
-            items: group.items.filter(item => {
-                if (item.adminOnly) return req.user.role === 'Admin';
-                return canAccess(item.module);
-            })
-        })).filter(group => group.items.length > 0);
+        let navigation = [];
+        if (isAdmin) {
+            navigation = allMenuGroups;
+        } else {
+            navigation = allMenuGroups.map(group => ({
+                ...group,
+                items: group.items.filter(item => {
+                    if (item.adminOnly) return false;
+                    return canAccess(item.module);
+                })
+            })).filter(group => group.items.length > 0);
+        }
 
-        // Map capabilities for feature-level control
         const capabilities = {
             canAccounting: canAccess('Accounting'),
             canReports: canAccess('Reports'),
@@ -167,7 +225,8 @@ const getMe = async (req, res) => {
             canPayroll: canAccess('Payroll'),
             canHR: canAccess('HR'),
             canSummaries: canAccess('Summaries'),
-            isAdmin: req.user.role === 'Admin'
+            canApprovals: canAccess('Approvals'),
+            isAdmin: isAdmin
         };
 
         const settingsList = await GlobalSetting.find({});
@@ -185,11 +244,20 @@ const getMe = async (req, res) => {
             settings
         };
 
-        // Cache for 5 minutes (300 seconds)
-        await setCache(cacheKey, responseData, 300);
+        logger.info('GetMe Navigation Debug', {
+            userId,
+            username: req.user.username,
+            navigationGroupCount: navigation.length,
+            navigationTitles: navigation.map(g => g.title),
+            modulesCount: responseData.modules.length,
+            modules: responseData.modules
+        });
 
+        // TEMPORARILY DISABLE CACHING
+        // await setCache(cacheKey, responseData, 300);
         res.json(responseData);
     } catch (error) {
+        logger.error('GetMe Error', { userId: req.user?._id, error: error.message });
         res.status(500).json({ detail: error.message });
     }
 };

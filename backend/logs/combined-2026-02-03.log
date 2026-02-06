@@ -396,3 +396,40 @@
 {"level":"warn","message":"Redis reconnection attempts exhausted, running without cache","timestamp":"2026-02-03 03:03:41"}
 {"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 03:03:41"}
 {"error":"","level":"warn","message":"Redis initialization failed, running without cache","timestamp":"2026-02-03 03:03:41"}
+{"level":"info","message":"Default permissions and checks completed","timestamp":"2026-02-03 21:03:34"}
+{"level":"info","message":"Server is running on port 5000","timestamp":"2026-02-03 21:03:34"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 21:03:34"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 21:03:34"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 21:03:34"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 21:03:34"}
+{"level":"warn","message":"Redis reconnection attempts exhausted, running without cache","timestamp":"2026-02-03 21:03:34"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 21:03:34"}
+{"error":"","level":"warn","message":"Redis initialization failed, running without cache","timestamp":"2026-02-03 21:03:34"}
+{"level":"info","message":"Default permissions and checks completed","timestamp":"2026-02-03 23:33:03"}
+{"level":"info","message":"Server is running on port 5000","timestamp":"2026-02-03 23:33:03"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:33:03"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:33:03"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:33:03"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:33:03"}
+{"level":"warn","message":"Redis reconnection attempts exhausted, running without cache","timestamp":"2026-02-03 23:33:04"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:33:04"}
+{"error":"","level":"warn","message":"Redis initialization failed, running without cache","timestamp":"2026-02-03 23:33:04"}
+{"level":"info","message":"Default permissions and checks completed","timestamp":"2026-02-03 23:41:08"}
+{"level":"info","message":"Server is running on port 5000","timestamp":"2026-02-03 23:41:08"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:41:08"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:41:08"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:41:08"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:41:08"}
+{"level":"warn","message":"Redis reconnection attempts exhausted, running without cache","timestamp":"2026-02-03 23:41:09"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:41:09"}
+{"error":"","level":"warn","message":"Redis initialization failed, running without cache","timestamp":"2026-02-03 23:41:09"}
+{"level":"info","message":"Default permissions and checks completed","timestamp":"2026-02-03 23:48:30"}
+{"level":"info","message":"Server is running on port 5000","timestamp":"2026-02-03 23:48:30"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:48:30"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:48:30"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:48:31"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:48:31"}
+{"level":"warn","message":"Redis reconnection attempts exhausted, running without cache","timestamp":"2026-02-03 23:48:31"}
+{"error":"","level":"error","message":"Redis Client Error","timestamp":"2026-02-03 23:48:31"}
+{"error":"","level":"warn","message":"Redis initialization failed, running without cache","timestamp":"2026-02-03 23:48:31"}
+{"action":"Login","detail":"User successfully logged into the system","event_type":"audit","level":"info","message":"System Event","timestamp":"2026-02-03 23:48:36","type":"auth","user":"admin"}

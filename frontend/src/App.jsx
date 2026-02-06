@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
+import MainLayout from './components/MainLayout';
 import Ledger from './pages/Ledger';
 import Reports from './pages/Reports';
 import Logs from './pages/Logs';
@@ -24,13 +25,17 @@ import LeaveManagement from './pages/hr/LeaveManagement';
 import LeaveSettings from './pages/hr/LeaveSettings';
 import ShiftManagement from './pages/hr/ShiftManagement';
 import PunchSimulator from './pages/hr/PunchSimulator';
+import OnboardingManagement from './pages/hr/OnboardingManagement';
 
-// Employee Portal
-import PortalLogin from './pages/portal/PortalLogin';
-import PortalDashboard from './pages/portal/PortalDashboard';
-import PortalLeave from './pages/portal/PortalLeave';
-
-// HR Module - New Pages
+// Employee Portal (Unified)
+import ESSDashboard from './pages/portal/ESSDashboard';
+import MyAttendance from './pages/portal/MyAttendance';
+import MyLeaves from './pages/portal/MyLeaves';
+import MyProfile from './pages/portal/MyProfile';
+// Manager Module
+import ManagerLeaves from './pages/portal/manager/ManagerLeaves';
+import ManagerTeam from './pages/portal/manager/ManagerTeam';
+import ApplyForTeam from './pages/portal/manager/ApplyForTeam';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.css';
@@ -54,187 +59,259 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
 
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute module="Dashboard">
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
+      <Route element={<MainLayout />}>
+        <Route
+          path="/"
+          element={
+            user?.role === 'ESS' ? (
+              <Navigate to="/my-dashboard" replace />
+            ) : (
+              <ProtectedRoute module="Dashboard">
+                <Dashboard />
+              </ProtectedRoute>
+            )
+          }
+        />
 
-      <Route
-        path="/ledger"
-        element={
-          <ProtectedRoute module="Ledger">
-            <Ledger />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/my-dashboard"
+          element={
+            <ProtectedRoute module="ESS">
+              <ESSDashboard />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/reports"
-        element={
-          <ProtectedRoute module="Reports">
-            <Reports />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/ledger"
+          element={
+            <ProtectedRoute module="Ledger">
+              <Ledger />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/logs"
-        element={
-          <ProtectedRoute roles={['Admin']}>
-            <Logs />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/active-sessions"
-        element={
-          <ProtectedRoute roles={['Admin']}>
-            <ActiveSessions />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute module="Reports">
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/statement/:id"
-        element={
-          <ProtectedRoute module="Statements">
-            <AccountStatement />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/logs"
+          element={
+            <ProtectedRoute roles={['Admin']}>
+              <Logs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/active-sessions"
+          element={
+            <ProtectedRoute roles={['Admin']}>
+              <ActiveSessions />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/statement/:id"
+          element={
+            <ProtectedRoute module="Statements">
+              <AccountStatement />
+            </ProtectedRoute>
+          }
+        />
 
 
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute module="Settings">
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute module="Settings">
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/billing"
-        element={
-          <ProtectedRoute module="Billing">
-            <Billing />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/billing"
+          element={
+            <ProtectedRoute module="Billing">
+              <Billing />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/payroll"
-        element={
-          <ProtectedRoute module="Payroll">
-            <Payroll />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/assets"
-        element={
-          <ProtectedRoute module="Assets">
-            <AssetTracking />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr"
-        element={
-          <ProtectedRoute module="HR">
-            <HRDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr/employees"
-        element={
-          <ProtectedRoute module="HR">
-            <EmployeeList />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr/employees/new"
-        element={
-          <ProtectedRoute module="HR">
-            <EmployeeForm />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr/employees/:id/edit"
-        element={
-          <ProtectedRoute module="HR">
-            <EmployeeForm />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr/employees/:id"
-        element={
-          <ProtectedRoute module="HR">
-            <EmployeeProfile />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr/attendance"
-        element={
-          <ProtectedRoute module="HR">
-            <AttendanceManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr/leaves"
-        element={
-          <ProtectedRoute module="HR">
-            <LeaveManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr/leave-settings"
-        element={
-          <ProtectedRoute module="HR">
-            <LeaveSettings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr/shifts"
-        element={
-          <ProtectedRoute module="HR">
-            <ShiftManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/hr/simulator"
-        element={
-          <ProtectedRoute module="HR">
-            <PunchSimulator />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/summaries"
-        element={
-          <ProtectedRoute module="Summaries">
-            <AccountSummaries />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/payroll"
+          element={
+            <ProtectedRoute module="Payroll">
+              <Payroll />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/assets"
+          element={
+            <ProtectedRoute module="Assets">
+              <AssetTracking />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr"
+          element={
+            <ProtectedRoute module="HR">
+              <HRDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/employees"
+          element={
+            <ProtectedRoute module="HR">
+              <EmployeeList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/employees/new"
+          element={
+            <ProtectedRoute module="HR">
+              <EmployeeForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/employees/:id/edit"
+          element={
+            <ProtectedRoute module="HR">
+              <EmployeeForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/employees/:id"
+          element={
+            <ProtectedRoute module="HR">
+              <EmployeeProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/attendance"
+          element={
+            <ProtectedRoute module="HR">
+              <AttendanceManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/leaves"
+          element={
+            <ProtectedRoute module="HR">
+              <LeaveManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/leave-settings"
+          element={
+            <ProtectedRoute module="HR">
+              <LeaveSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/shifts"
+          element={
+            <ProtectedRoute module="HR">
+              <ShiftManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/simulator"
+          element={
+            <ProtectedRoute module="HR">
+              <PunchSimulator />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/onboarding"
+          element={
+            <ProtectedRoute module="HR">
+              <OnboardingManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/summaries"
+          element={
+            <ProtectedRoute module="Summaries">
+              <AccountSummaries />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-attendance"
+          element={
+            <ProtectedRoute module="ESS">
+              <MyAttendance />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Employee Portal - Isolated Module */}
-      <Route path="/portal/login" element={<PortalLogin />} />
-      <Route path="/portal/dashboard" element={<PortalDashboard />} />
-      <Route path="/portal/leaves" element={<PortalLeave />} />
+        <Route
+          path="/my-leaves"
+          element={
+            <ProtectedRoute module="ESS">
+              <MyLeaves />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-profile"
+          element={
+            <ProtectedRoute module="ESS">
+              <MyProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Manager/Approver Routes */}
+        <Route
+          path="/approvals/leaves"
+          element={
+            <ProtectedRoute module="Approvals">
+              <ManagerLeaves />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/approvals/team"
+          element={
+            <ProtectedRoute module="Approvals">
+              <ManagerTeam />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/approvals/apply-for"
+          element={
+            <ProtectedRoute module="Approvals">
+              <ApplyForTeam />
+            </ProtectedRoute>
+          }
+        />
+      </Route>
+
+      {/* Catch All - 404 */}
+      <Route path="*" element={<div className="d-flex justify-content-center align-items-center vh-100"><h3>404 | Page Not Found</h3></div>} />
     </Routes>
   );
 }

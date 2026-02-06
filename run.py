@@ -2,8 +2,8 @@ import subprocess
 import tkinter as tk
 from tkinter import messagebox
 
-backend_dir = r"C:\Users\Amin\.gemini\antigravity\scratch\accountsd-v4\backend"
-frontend_dir = r"C:\Users\Amin\.gemini\antigravity\scratch\accountsd-v4\frontend"
+backend_dir = 'backend'
+frontend_dir = 'frontend'
 
 backend_process = None
 frontend_process = None

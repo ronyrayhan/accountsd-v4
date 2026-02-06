@@ -1,4 +1,4 @@
-const { Asset, Employee, AssetHistory, AssetCategory } = require('../models');
+const { Asset, HREmployee, AssetHistory, AssetCategory } = require('../models'); // CHANGED: Employee -> HREmployee
 const { logEvent } = require('../utils/logger');
 
 // Helper to clean data from FormData
@@ -32,10 +32,10 @@ exports.getAssets = async (req, res) => {
         if (assigned_to) query.assigned_to = assigned_to;
 
         const assets = await Asset.find(query)
-            .populate('assigned_to')
+            .populate('assigned_to') // Populates HREmployee (with virtual 'name')
             .populate({
                 path: 'history',
-                populate: { path: 'employee_id', select: 'name' },
+                populate: { path: 'employee_id', select: 'personal_info.full_name' }, // Select name field explicitly if needed, or rely on virtual
                 options: { sort: { date: -1 } }
             })
             .sort({ createdAt: -1 });
@@ -114,7 +114,7 @@ exports.assignAsset = async (req, res) => {
         const { id } = req.params;
         const { employee_id, room_number, notes } = req.body;
 
-        const oldAsset = await Asset.findById(id);
+        const oldAsset = await Asset.findById(id).populate('assigned_to');
         if (!oldAsset) return res.status(404).json({ detail: 'Asset not found' });
 
         const empId = employee_id === '' ? null : employee_id;
@@ -163,7 +163,7 @@ exports.getAllHistory = async (req, res) => {
     try {
         const history = await AssetHistory.find()
             .populate('asset_id', 'name serial_number')
-            .populate('employee_id', 'name')
+            .populate('employee_id', 'personal_info.full_name') // Explicitly select name
             .sort({ date: -1 })
             .limit(200);
         res.json(history);
