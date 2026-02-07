@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
     hashed_password: { type: String, required: true },
     role: { type: String, enum: ['Admin', 'Accountant', 'Viewer', 'HR', 'ESS'], default: 'Viewer' },
     is_active: { type: Boolean, default: true },
+    profile_picture: { type: String }, // Path to profile image
     onboarding_status: { type: String, enum: ['Pending', 'InProgress', 'Completed'], default: 'Pending' },
     employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HREmployee' } // Link to HR Profile
 }, {

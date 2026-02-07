@@ -120,6 +120,16 @@ const getAllProgress = async (req, res) => {
 const getEmployeeOnboarding = async (req, res) => {
     try {
         const { id } = req.params; // Student/Employee ID
+
+        // Ownership Check (IDOR Mitigation)
+        const userRole = req.user.role?.toLowerCase();
+        const isSelf = req.user.employee_id?.toString() === id.toString();
+        const isAdminOrHR = ['admin', 'hr'].includes(userRole);
+
+        if (!isSelf && !isAdminOrHR) {
+            return res.status(403).json({ detail: 'Unauthorized to view this onboarding progress' });
+        }
+
         const user = await User.findOne({ employee_id: id });
         if (!user) return res.status(404).json({ detail: 'User not found for this employee' });
 

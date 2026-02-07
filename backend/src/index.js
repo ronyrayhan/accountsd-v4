@@ -1,3 +1,4 @@
+const https = require('https');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -15,6 +16,12 @@ const { initRedis } = require('./utils/cache');
 const { logger } = require('./utils/logger');
 require('dotenv').config();
 
+// Load SSL certificates
+const sslOptions = {
+    key: fs.readFileSync(path.join(__dirname, '../../certs/key.pem')),
+    cert: fs.readFileSync(path.join(__dirname, '../../certs/cert.pem'))
+};
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -30,10 +37,10 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-            imgSrc: ["'self'", "data:", "blob:", "http://localhost:5000"],
-            connectSrc: ["'self'", "http://localhost:5000", "ws://localhost:5173"],
-            frameSrc: ["'self'", "http://localhost:5000"], // Allow framing backend content
-            frameAncestors: ["'self'", "http://localhost:5173"] // Allow frontend to frame backend
+            imgSrc: ["'self'", "data:", "blob:", "https://localhost:5000"],
+            connectSrc: ["'self'", "https://localhost:5000", "wss://localhost:5173"],
+            frameSrc: ["'self'", "https://localhost:5000"], // Allow framing backend content
+            frameAncestors: ["'self'", "https://localhost:5173"] // Allow frontend to frame backend
         }
     },
     frameguard: false // Disable X-Frame-Options to allow framing from different origin (localhost:5173)
@@ -60,6 +67,57 @@ app.use(cookieParser()); // Parse cookies for refresh token
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Custom CSRF Protection (Double Submit Cookie Pattern)
+const crypto = require('crypto');
+const csrfProtection = (req, res, next) => {
+    // Disable CSRF in test environment
+    if (process.env.NODE_ENV === 'test') {
+        return next();
+    }
+
+    // Only check state-changing methods
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+        // Exempt auth routes that establish the session
+        const excludedPaths = ['/api/login', '/api/refresh-token'];
+        if (excludedPaths.includes(req.path)) {
+            return next();
+        }
+
+        const csrfToken = req.headers['x-csrf-token'];
+        const csrfCookie = req.cookies['_csrf'];
+
+        if (!csrfToken || !csrfCookie || csrfToken !== csrfCookie) {
+            logger.warn('CSRF validation failed', {
+                ip: req.ip,
+                method: req.method,
+                url: req.originalUrl,
+                hasToken: !!csrfToken,
+                hasCookie: !!csrfCookie
+            });
+            return res.status(403).json({ detail: 'CSRF validation failed. Refresh the page.' });
+        }
+    }
+    next();
+};
+
+app.get('/api/csrf-token', (req, res) => {
+    // Generate a new token if not present
+    let token = req.cookies['_csrf'];
+    if (!token) {
+        token = crypto.randomBytes(32).toString('hex');
+    }
+
+    res.cookie('_csrf', token, {
+        httpOnly: false, // Must be accessible by JS to send in header
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Lax', // Changed from Strict for cross-port compatibility on localhost
+        path: '/'
+    });
+    res.json({ csrfToken: token });
+});
+
+app.use('/api', csrfProtection); // Apply to all API routes after the token route
+
 // Static Files removed from public access for security.
 // They are now served via the authenticated /api/files/:filename route.
 
@@ -83,46 +141,17 @@ app.use('/api/portal', require('./routes/portal'));
 app.use('/api', apiRoutes);
 app.use('/', apiRoutes); // Fail-safe for Vercel
 
-// Global Error Handler
-app.use((err, req, res, next) => {
-    // Return 400 for specific file type validation errors
-    if (err.message === 'Please Select correct file type') {
-        return res.status(400).json({ detail: err.message });
-    }
-
-    // Mongoose Validation Error
-    if (err.name === 'ValidationError') {
-        const messages = Object.values(err.errors).map(val => val.message);
-        return res.status(400).json({ detail: messages.join(', ') });
-    }
-
-    // Mongoose Duplicate Key Error
-    if (err.code === 11000) {
-        const field = Object.keys(err.keyValue)[0];
-        return res.status(400).json({ detail: `Duplicate field value entered: ${field}` });
-    }
-
-    // Mongoose Cast Error (Invalid ID)
-    if (err.name === 'CastError') {
-        return res.status(400).json({ detail: `Invalid ${err.path}: ${err.value}` });
-    }
-
-    console.error(err.stack);
-    const status = err.status || 500;
-    const message = (status === 500 && process.env.NODE_ENV === 'production')
-        ? 'Internal Server Error'
-        : (err.message || 'Internal Server Error');
-
-    res.status(status).json({
-        detail: message
-    });
-});
+const errorHandler = require('./middleware/errorHandler');
+app.use(errorHandler);
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
-}
+const profilesDir = path.join(uploadDir, 'profiles');
+[uploadDir, profilesDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+});
 
 // Database Connection and Seeding
 const setupDB = async () => {
@@ -187,20 +216,18 @@ const setupDB = async () => {
     }
 };
 
-// Only listen if not in Vercel environment
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+// Only listen if not in Vercel environment and NOT in test environment
+if (process.env.NODE_ENV !== 'test' && (process.env.NODE_ENV !== 'production' || !process.env.VERCEL)) {
     setupDB().then(async () => {
         // Initialize Redis (gracefully degrades if unavailable)
         initRedis();
 
-        app.listen(PORT, () => {
-            logger.info(`Server is running on port ${PORT}`);
+        https.createServer(sslOptions, app).listen(PORT, () => {
+            logger.info(`Secure Server is running on https://localhost:${PORT}`);
         });
     });
-} else {
+} else if (process.env.NODE_ENV !== 'test') {
     // For Vercel, we need to ensure DB is connected
-    // Vercel serverless functions are stateless, 
-    // but Mongoose caches the connection if connected once.
     setupDB().then(() => initRedis());
 }
 

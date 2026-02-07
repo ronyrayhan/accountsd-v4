@@ -5,7 +5,7 @@ import api from '../api/axios';
 import './Sidebar.css';
 
 const Sidebar = () => {
-    const { user, logout } = useAuth();
+    const { user, token, logout } = useAuth();
     // Initialize state from localStorage so it persists across page reloads/navigation
     const [isCollapsed, setIsCollapsed] = useState(() => {
         return localStorage.getItem('sidebarCollapsed') === 'true';
@@ -13,6 +13,7 @@ const Sidebar = () => {
     const [reminderCount, setReminderCount] = useState(0);
     const [expandedGroups, setExpandedGroups] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
+    const [profileImgError, setProfileImgError] = useState(false);
     const scrollRef = useRef(null);
     const location = useLocation();
 
@@ -97,7 +98,7 @@ const Sidebar = () => {
         updateIndicator();
         window.addEventListener('resize', updateIndicator);
         return () => window.removeEventListener('resize', updateIndicator);
-    }, [user?.navigation]);
+    }, [user?.navigation, expandedGroups, isCollapsed]);
 
     useEffect(() => {
         const fetchReminders = async () => {
@@ -134,6 +135,11 @@ const Sidebar = () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [isCollapsed]);
+
+    // Reset image error state when user changes or profile picture updates
+    useEffect(() => {
+        setProfileImgError(false);
+    }, [user?.profile_picture]);
 
     return (
         <nav id="sidebar" className={isCollapsed ? 'collapsed' : ''}>
@@ -185,6 +191,7 @@ const Sidebar = () => {
                                 className={`menu-header ${groupIdx > 0 ? 'mt-3' : ''} d-flex justify-content-between align-items-center user-select-none`}
                                 onClick={() => toggleGroup(group.title)}
                                 style={{ cursor: 'pointer', opacity: 0.9 }}
+                                data-tooltip={isCollapsed ? group.title : ''}
                             >
                                 <div className="d-flex align-items-center">
                                     {group.icon && <i className={`${group.icon} me-3 header-icon`}></i>}
@@ -225,12 +232,22 @@ const Sidebar = () => {
             {/* Profile Footer */}
             <div className="user-profile-section">
                 <div className="user-info">
-                    <div className="avatar-circle">
-                        {user?.username?.[0]?.toUpperCase() || 'U'}
-                    </div>
-                    <div className="overflow-hidden">
-                        <div className="text-white fw-bold text-truncate small">{user?.username}</div>
-                        <div className="text-muted small text-truncate" style={{ fontSize: '0.75rem' }}>
+                    <NavLink to="/my-profile" className="avatar-circle text-decoration-none flex-shrink-0">
+                        {user?.profile_picture && !profileImgError ? (
+                            <img
+                                src={`${api.defaults.baseURL}/files/${user.profile_picture}?token=${token}`}
+                                alt="Profile"
+                                className="w-100 h-100 d-block"
+                                style={{ objectFit: 'cover', minWidth: '100%', minHeight: '100%' }}
+                                onError={() => setProfileImgError(true)}
+                            />
+                        ) : (
+                            user?.username?.[0]?.toUpperCase() || 'U'
+                        )}
+                    </NavLink>
+                    <div className="user-text">
+                        <NavLink to="/my-profile" className="text-white fw-bold text-truncate small d-block text-decoration-none hover-link" style={{ maxWidth: '100px' }}>{user?.username}</NavLink>
+                        <div className="text-muted small text-truncate" style={{ fontSize: '0.75rem', maxWidth: '100px' }}>
                             {user?.role}
                         </div>
                     </div>

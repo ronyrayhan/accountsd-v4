@@ -237,8 +237,12 @@ exports.getBalances = async (req, res) => {
 exports.getProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user._id).select('employee_id');
-        if (!user || !user.employee_id) {
-            return res.status(404).json({ message: 'Employee profile not found' });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (!user.employee_id) {
+            return res.json(null);
         }
 
         const employee = await HREmployee.findById(user.employee_id)

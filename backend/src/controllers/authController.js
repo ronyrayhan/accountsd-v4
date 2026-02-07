@@ -41,7 +41,8 @@ const login = async (req, res) => {
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-            sameSite: 'strict',
+            sameSite: 'Lax', // Relaxed to Lax for cross-port compatibility
+            path: '/api/refresh-token', // Limited scope for extra security
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
@@ -231,13 +232,22 @@ const getMe = async (req, res) => {
 
         const settingsList = await GlobalSetting.find({});
         const settings = {};
-        settingsList.forEach(s => settings[s.key] = s.value);
+
+        // SECURITY: Filter out sensitive keys from the front-end settings dump
+        const sensitiveKeys = ['esp32_rfid_api_key', 'jwt_secret', 'mail_password', 'db_url'];
+
+        settingsList.forEach(s => {
+            if (!sensitiveKeys.includes(s.key)) {
+                settings[s.key] = s.value;
+            }
+        });
 
         const responseData = {
             id: req.user.id,
             username: req.user.username,
             role: req.user.role,
             is_active: req.user.is_active,
+            profile_picture: req.user.profile_picture,
             navigation: navigation,
             capabilities: capabilities,
             modules: permissions.filter(p => p.can_access === true || p.can_access === 1).map(p => p.module),
@@ -483,6 +493,31 @@ const refreshAccessToken = async (req, res) => {
     }
 };
 
+const updateProfilePicture = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ detail: 'No file uploaded' });
+        }
+
+        const userId = req.user._id;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ detail: 'User not found' });
+
+        // Update profile picture path
+        user.profile_picture = `profiles/${req.file.filename}`;
+        await user.save();
+
+        await logEvent(user.username, 'Update Profile Picture', 'User updated their profile picture', 'auth');
+
+        res.json({
+            message: 'Profile picture updated successfully',
+            profile_picture: user.profile_picture
+        });
+    } catch (error) {
+        res.status(500).json({ detail: error.message });
+    }
+};
+
 module.exports = {
     login,
     getMe,
@@ -498,5 +533,6 @@ module.exports = {
     getActiveSessions,
     terminateSession,
     refreshAccessToken,
-    getUserByEmployeeId
+    getUserByEmployeeId,
+    updateProfilePicture
 };

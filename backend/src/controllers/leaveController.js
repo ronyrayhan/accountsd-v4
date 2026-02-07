@@ -42,8 +42,14 @@ exports.saveLeaveType = async (req, res) => {
  */
 exports.applyForLeave = async (req, res) => {
     try {
-        const { employee_id, leave_type_id, start_date, end_date, total_days, reason } = req.body;
-        const files = req.files || []; // From Multer
+        // 0. Ownership Check (IDOR Mitigation)
+        const userRole = req.user.role?.toLowerCase();
+        const isSelf = req.user.employee_id?.toString() === employee_id.toString();
+        const isAdminOrHR = ['admin', 'hr'].includes(userRole);
+
+        if (!isSelf && !isAdminOrHR) {
+            return res.status(403).json({ message: 'Unauthorized to apply leave for this employee' });
+        }
 
         // 1. Validate Leave Type
         const type = await LeaveType.findById(leave_type_id);
@@ -99,6 +105,16 @@ exports.applyForLeave = async (req, res) => {
 exports.getMyLeaves = async (req, res) => {
     try {
         const { employee_id } = req.params;
+
+        // Ownership Check (IDOR Mitigation)
+        const userRole = req.user.role?.toLowerCase();
+        const isSelf = req.user.employee_id?.toString() === employee_id.toString();
+        const isAdminOrHR = ['admin', 'hr'].includes(userRole);
+
+        if (!isSelf && !isAdminOrHR) {
+            return res.status(403).json({ message: 'Unauthorized to view this leave history' });
+        }
+
         const leaves = await LeaveRequest.find({ employee_id })
             .populate('leave_type')
             .sort({ createdAt: -1 });
@@ -116,6 +132,16 @@ exports.getMyLeaves = async (req, res) => {
 exports.getMyBalances = async (req, res) => {
     try {
         const { employee_id } = req.params;
+
+        // Ownership Check (IDOR Mitigation)
+        const userRole = req.user.role?.toLowerCase();
+        const isSelf = req.user.employee_id?.toString() === employee_id.toString();
+        const isAdminOrHR = ['admin', 'hr'].includes(userRole);
+
+        if (!isSelf && !isAdminOrHR) {
+            return res.status(403).json({ message: 'Unauthorized to view these balances' });
+        }
+
         const year = new Date().getFullYear();
 
         // 1. Fetch all active leave types

@@ -8,6 +8,16 @@ const mongoose = require('mongoose');
 exports.getTodayStatus = async (req, res) => {
     try {
         const { employee_id } = req.params;
+
+        // Ownership Check (IDOR Mitigation)
+        const userRole = req.user.role?.toLowerCase();
+        const isSelf = req.user.employee_id?.toString() === employee_id.toString();
+        const isAdminOrHR = ['admin', 'hr'].includes(userRole);
+
+        if (!isSelf && !isAdminOrHR) {
+            return res.status(403).json({ message: 'Unauthorized to view this attendance status' });
+        }
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -50,6 +60,15 @@ exports.getTodayStatus = async (req, res) => {
 exports.manualPunch = async (req, res) => {
     try {
         const { employee_id, device_id = 'HR_PANEL' } = req.body;
+
+        // Ownership Check (IDOR Mitigation)
+        const userRole = req.user.role?.toLowerCase();
+        const isSelf = req.user.employee_id?.toString() === employee_id.toString();
+        const isAdminOrHR = ['admin', 'hr'].includes(userRole);
+
+        if (!isSelf && !isAdminOrHR) {
+            return res.status(403).json({ message: 'Unauthorized to punch for this employee' });
+        }
 
         // Find employee to get RFID if needed (though web punch doesn't need it)
         const employee = await HREmployee.findById(employee_id);

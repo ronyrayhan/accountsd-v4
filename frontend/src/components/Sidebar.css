@@ -1,6 +1,8 @@
 :root {
-  --sidebar-width: 260px;
-  --sidebar-collapsed-width: 80px;
+  --sidebar-width: 240px;
+  /* Reduced from 260px */
+  --sidebar-collapsed-width: 72px;
+  /* Reduced from 80px */
   /* New compact width */
   --sidebar-bg: #1e293b;
   --sidebar-text: #94a3b8;
@@ -52,19 +54,21 @@
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 1rem 2rem 1rem;
+  justify-content: center;
+  /* Centered side-by-side */
+  gap: 10px;
+  padding: 0 0.5rem 1.75rem 0.5rem;
+  /* Balanced horizontal padding */
   color: #fff;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: -0.5px;
   white-space: nowrap;
-  /* Prevent text wrapping */
 }
 
 #sidebar.collapsed .sidebar-brand {
   justify-content: center;
-  padding-left: 0;
+  padding: 0 0 1.75rem 0;
 }
 
 #sidebar .sidebar-brand span {
@@ -81,7 +85,8 @@
    Sidebar Search
 ================================ */
 .sidebar-search {
-  padding: 0 1rem 1.5rem 1rem;
+  padding: 0 1rem 1.25rem 1rem;
+  /* Reduced from 1.5rem */
   transition: all 0.3s ease;
 }
 
@@ -152,13 +157,15 @@
    Menu Headers (Tree Root / Buttons)
 ================================ */
 .menu-header {
-  height: 40px;
-  margin: 1.25rem 0.5rem 0.5rem;
-  /* Distinct spacing */
-  padding: 0 1rem;
-  font-size: 0.75rem;
+  height: 36px;
+  /* Reduced from 40px */
+  margin: 1.15rem 0.5rem 0.4rem;
+  /* Slightly tighter */
+  padding: 0 0.85rem;
+  font-size: 0.7rem;
+  /* Reduced from 0.75rem */
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   color: #e2e8f0;
   font-weight: 700;
   cursor: pointer;
@@ -308,13 +315,17 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  margin: 4px 0 4px 6px;
+  gap: 10px;
+  /* Reduced from 12px */
+  padding: 8px 12px;
+  /* Reduced from 10px 14px */
+  margin: 3px 0 3px 6px;
+  /* Tighter */
   color: #cbd5e1;
   text-decoration: none;
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  /* Reduced from 0.9rem */
   font-weight: 500;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
@@ -518,29 +529,41 @@
 ================================ */
 .user-profile-section {
   margin-top: auto;
-  margin-left: 1rem;
-  /* Added gap on both sides */
-  margin-right: 1rem;
-  margin-bottom: 1rem;
-  padding: 1.25rem 1rem;
+  margin-left: 0.85rem;
+  margin-right: 0.85rem;
+  margin-bottom: 0.85rem;
+  padding: 0.85rem;
+  /* Balanced padding */
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
-  /* Ensure center alignment */
   flex-direction: column;
   align-items: center;
-  text-align: center;
 }
 
 .user-info {
   display: flex;
-  flex-direction: column;
-  /* Centered layout for uncollapsed too */
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 1rem;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 0.85rem;
   width: 100%;
+}
+
+.user-text {
+  overflow: hidden;
+  text-align: left;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#sidebar.collapsed .user-info {
+  flex-direction: column;
+  justify-content: center;
+  margin-bottom: 0.5rem;
 }
 
 .avatar-circle {
@@ -556,6 +579,18 @@
   font-weight: bold;
   font-size: 1.2rem;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.avatar-circle:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.hover-link:hover {
+  color: #60a5fa !important;
+  text-decoration: underline !important;
 }
 
 #sidebar.collapsed .user-profile-section {
@@ -570,7 +605,8 @@
 
 #sidebar.collapsed .user-info .flex-grow-1,
 #sidebar.collapsed .user-info .text-white,
-#sidebar.collapsed .user-info .text-muted {
+#sidebar.collapsed .user-info .text-muted,
+#sidebar.collapsed .user-text {
   display: none;
 }
 
@@ -663,4 +699,103 @@
 #sidebar.collapsed~#main-content {
   margin-left: calc(var(--sidebar-collapsed-width) + 2rem);
   width: calc(100% - var(--sidebar-collapsed-width) - 3rem);
+}
+
+/* ================================
+   Neon Scroll Indicator
+================================ */
+.scroll-hint {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.95), transparent);
+  pointer-events: none;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12px;
+}
+
+.neon-indicator {
+  width: 40px;
+  height: 3px;
+  background: #3b82f6;
+  border-radius: 4px;
+  box-shadow:
+    0 0 8px rgba(59, 130, 246, 0.8),
+    0 0 15px rgba(59, 130, 246, 0.6),
+    0 0 25px rgba(59, 130, 246, 0.4);
+  animation: neon-pulse 2s infinite ease-in-out;
+}
+
+@keyframes neon-pulse {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scaleX(0.8);
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scaleX(1.2);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.9), 0 0 35px rgba(59, 130, 246, 0.7);
+  }
+}
+
+/* ================================
+   Custom Styled Tooltips
+================================ */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]:not([data-tooltip=""])::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(10px);
+  background: var(--sidebar-active);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100000;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+[data-tooltip]:not([data-tooltip=""])::before {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(4px);
+  border: 6px solid transparent;
+  border-right-color: var(--sidebar-active);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100000;
+}
+
+[data-tooltip]:not([data-tooltip=""]):hover::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(18px);
+}
+
+[data-tooltip]:not([data-tooltip=""]):hover::before {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(12px);
 }

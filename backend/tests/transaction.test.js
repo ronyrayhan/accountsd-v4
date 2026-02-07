@@ -10,7 +10,7 @@ describe('Transaction Integrity Tests', () => {
 
     beforeAll(async () => {
         // Connect to test database
-        const testDbUri = process.env.MONGODB_TEST_URI || 'mongodb://localhost:27017/pulse_test';
+        const testDbUri = process.env.MONGODB_TEST_URI || 'mongodb://127.0.0.1:27017/pulse_test';
         await mongoose.connect(testDbUri);
 
         // Create test user

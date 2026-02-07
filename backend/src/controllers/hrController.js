@@ -26,14 +26,17 @@ exports.getEmployees = async (req, res) => {
         if (status) query['employment_info.status'] = status;
         if (employment_type) query['employment_info.employment_type'] = employment_type;
         if (search) {
+            // Escape special regex characters to prevent ReDoS attacks
+            const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             query.$or = [
-                { 'personal_info.full_name': { $regex: search, $options: 'i' } },
-                { employee_id: { $regex: search, $options: 'i' } },
-                { rfid_card_number: { $regex: search, $options: 'i' } }
+                { 'personal_info.full_name': { $regex: safeSearch, $options: 'i' } },
+                { employee_id: { $regex: safeSearch, $options: 'i' } },
+                { rfid_card_number: { $regex: safeSearch, $options: 'i' } }
             ];
         }
 
         const employees = await HREmployee.find(query)
+            .select('-personal_info.national_id -compensation.bank_account') // SECURITY: Exclude PII from list view
             .populate('employment_info.reporting_manager_id', 'personal_info.full_name employee_id')
             .populate('employment_info.shift_id', 'name start_time end_time')
             .sort({ 'employment_info.joining_date': -1 });

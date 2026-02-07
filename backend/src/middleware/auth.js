@@ -41,12 +41,19 @@ const createToken = (user) => {
  * 5. Attaches the user object to 'req.user' for subsequent routes.
  */
 const authenticate = async (req, res, next) => {
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+    } else if (req.query.token) {
+        token = req.query.token;
+    }
+
+    if (!token) {
         return res.status(401).json({ detail: 'Could not validate credentials' });
     }
 
-    const token = authHeader.split(' ')[1];
     try {
         const payload = jwt.verify(token, SECRET_KEY);
         const user = await User.findById(payload.id);
@@ -158,7 +165,7 @@ const checkOnboarding = async (req, res, next) => {
 
     if (req.user.onboarding_status !== 'Completed') {
         // Allow onboarding-related paths and portal dashboard
-        const allowedPaths = ['/portal/onboarding', '/onboarding', '/portal/dashboard', '/portal/balances'];
+        const allowedPaths = ['/portal/onboarding', '/onboarding', '/portal/dashboard', '/portal/balances', '/portal/profile'];
         if (allowedPaths.some(path => req.originalUrl.includes(path))) {
             return next();
         }

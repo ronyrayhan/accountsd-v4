@@ -64,6 +64,25 @@ const uploadExcel = multer({
     }
 });
 
+const uploadProfile = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            cb(null, 'uploads/profiles/');
+        },
+        filename: (req, file, cb) => {
+            cb(null, `profile_${req.user.id}_${Date.now()}${path.extname(file.originalname)}`);
+        }
+    }),
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only images are allowed'));
+        }
+    },
+    limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
+});
+
 // AUTH
 router.post('/login', [
     body('username').trim().notEmpty().withMessage('Username is required'),
@@ -72,11 +91,21 @@ router.post('/login', [
 ], authController.login);
 router.post('/refresh-token', authController.refreshAccessToken);
 router.get('/auth/me', authenticate, authController.getMe);
+router.post('/auth/profile-picture', authenticate, uploadProfile.single('profile_picture'), authController.updateProfilePicture);
 
 // ACCOUNTS
 router.get('/accounts', authenticate, accountController.getAccounts);
-router.post('/accounts', authenticate, authorize('Accounting'), accountController.createAccount);
-router.put('/accounts/:id', authenticate, authorize('Admin'), accountController.updateAccount);
+router.post('/accounts', authenticate, authorize('Accounting'), [
+    body('code').trim().notEmpty().withMessage('Account code is required'),
+    body('name').trim().notEmpty().withMessage('Account name is required'),
+    body('type').isIn(['Asset', 'Liability', 'Equity', 'Income', 'Expense']).withMessage('Invalid account type'),
+    validate
+], accountController.createAccount);
+router.put('/accounts/:id', authenticate, authorize('Admin'), [
+    body('name').optional().trim().notEmpty().withMessage('Account name cannot be empty'),
+    body('is_active').optional().isBoolean(),
+    validate
+], accountController.updateAccount);
 router.delete('/accounts/:id', authenticate, authorize('Admin'), accountController.deleteAccount);
 router.post('/accounts/:id/balance', authenticate, authorize('Admin'), accountController.updateBalance);
 router.post('/accounts/recalculate', authenticate, authorize('Accounting'), accountController.recalculateBalances);
@@ -92,7 +121,11 @@ router.post('/transactions', authenticate, authorize('Accounting'), upload.singl
     body('date').optional().isISO8601().withMessage('Invalid date format'),
     validate
 ], transactionController.createTransaction);
-router.put('/transactions/:id', authenticate, authorize('Accounting'), transactionController.updateTransaction);
+router.put('/transactions/:id', authenticate, authorize('Accounting'), [
+    body('amount').optional().isFloat({ gt: 0 }).withMessage('Amount must be a positive number'),
+    body('description').optional().trim().notEmpty().withMessage('Description cannot be empty'),
+    validate
+], transactionController.updateTransaction);
 router.delete('/transactions/:id', authenticate, authorize('Admin'), transactionController.deleteTransaction);
 router.get('/transactions/:id/history', authenticate, authorize(['Accounting', 'Ledger', 'Admin']), transactionController.getTransactionHistory);
 router.get('/transactions/template', authenticate, transactionController.downloadTemplate);
@@ -266,10 +299,10 @@ router.post('/summaries/sync', authenticate, authorize('Admin'), async (req, res
 });
 
 // SECURE FILE SERVING
-router.get('/files/:filename', authenticate, (req, res) => {
-    const filename = path.basename(req.params.filename); // Prevent Directory Traversal
-    const uploadDir = path.join(__dirname, '../../uploads');
-    const safePath = path.join(uploadDir, filename);
+router.get('/files/*', authenticate, (req, res) => {
+    const relativePath = req.params[0];
+    const uploadDir = path.resolve(__dirname, '../../uploads');
+    const safePath = path.resolve(uploadDir, relativePath);
 
     // Ensure the resolved path is actually inside the uploads directory
     if (!safePath.startsWith(uploadDir)) {
@@ -277,7 +310,7 @@ router.get('/files/:filename', authenticate, (req, res) => {
     }
 
     // Check if file exists
-    if (fs.existsSync(safePath)) {
+    if (fs.existsSync(safePath) && fs.lstatSync(safePath).isFile()) {
         res.sendFile(safePath);
     } else {
         res.status(404).json({ detail: 'File not found' });

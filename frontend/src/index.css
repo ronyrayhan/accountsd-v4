@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+html {
+  font-size: 95%;
+  /* emulating the 80% zoom look slightly */
+}
+
 :root {
   /* Light Palette */
   --bg-main: #f1f5f9;
@@ -23,9 +28,10 @@
   --text-bright: #0f172a;
 
   /* Layout */
-  --sidebar-width: 260px;
+  --sidebar-width: 240px;
+  /* Reduced from 260px */
   --border-radius: 12px;
-  --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
   --card-shadow-hover: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --transition: all 0.2s ease-in-out;
 }
@@ -37,6 +43,7 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  line-height: 1.5;
 }
 
 /* Sidebar layout is now managed via Sidebar.css and MainLayout.jsx */
@@ -109,16 +116,20 @@ body {
 .top-bar h4 {
   font-weight: 700;
   color: var(--text-bright);
-  font-size: 1.75rem;
+  font-size: 1.5rem;
+  /* Reduced from 1.75rem */
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 /* Buttons */
 .btn {
   border-radius: 8px !important;
-  padding: 0.5rem 1.25rem !important;
+  padding: 0.45rem 1.15rem !important;
+  /* Slightly more compact */
   font-weight: 600 !important;
-  font-size: 0.9rem !important;
+  font-size: 0.85rem !important;
+  /* Reduced from 0.9rem */
   transition: var(--transition);
 }
 
@@ -157,13 +168,16 @@ body {
   color: #64748b;
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.65rem;
+  font-size: 0.625rem;
+  /* Slightly smaller */
   letter-spacing: 0.8px;
-  padding: 1rem 1.5rem !important;
+  padding: 0.875rem 1.25rem !important;
+  /* Reduced from 1rem 1.5rem */
 }
 
 .table tbody tr td {
-  padding: 1.25rem .5rem !important;
+  padding: 1rem .5rem !important;
+  /* Reduced from 1.25rem */
   border-bottom: 1px solid #f1f5f9 !important;
 }
 
