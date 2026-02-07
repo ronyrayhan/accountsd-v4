@@ -1,4 +1,3 @@
-const https = require('https');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -16,12 +15,6 @@ const { initRedis } = require('./utils/cache');
 const { logger } = require('./utils/logger');
 require('dotenv').config();
 
-// Load SSL certificates
-const sslOptions = {
-    key: fs.readFileSync(path.join(__dirname, '../../certs/key.pem')),
-    cert: fs.readFileSync(path.join(__dirname, '../../certs/cert.pem'))
-};
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -37,10 +30,10 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-            imgSrc: ["'self'", "data:", "blob:", "https://localhost:5000"],
-            connectSrc: ["'self'", "https://localhost:5000", "wss://localhost:5173"],
-            frameSrc: ["'self'", "https://localhost:5000"], // Allow framing backend content
-            frameAncestors: ["'self'", "https://localhost:5173"] // Allow frontend to frame backend
+            imgSrc: ["'self'", "data:", "blob:", "http://localhost:5000"],
+            connectSrc: ["'self'", "http://localhost:5000", "ws://localhost:5173"],
+            frameSrc: ["'self'", "http://localhost:5000"], // Allow framing backend content
+            frameAncestors: ["'self'", "http://localhost:5173"] // Allow frontend to frame backend
         }
     },
     frameguard: false // Disable X-Frame-Options to allow framing from different origin (localhost:5173)
@@ -222,8 +215,8 @@ if (process.env.NODE_ENV !== 'test' && (process.env.NODE_ENV !== 'production' ||
         // Initialize Redis (gracefully degrades if unavailable)
         initRedis();
 
-        https.createServer(sslOptions, app).listen(PORT, () => {
-            logger.info(`Secure Server is running on https://localhost:${PORT}`);
+        app.listen(PORT, () => {
+            logger.info(`Server is running on http://localhost:${PORT}`);
         });
     });
 } else if (process.env.NODE_ENV !== 'test') {
