@@ -39,26 +39,10 @@ body {
   min-height: 100vh;
 }
 
-#sidebar {
-  width: var(--sidebar-width);
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  background: var(--bg-sidebar);
-  border-right: 1px solid #cbd5e1;
-  z-index: 1000;
-  padding: 1.5rem 1rem;
-  display: flex;
-  flex-direction: column;
-}
+/* Sidebar layout is now managed via Sidebar.css and MainLayout.jsx */
 
 #main-content {
-  margin-left: var(--sidebar-width);
-  width: calc(100% - var(--sidebar-width));
   min-height: 100vh;
-  padding: 2.5rem;
-  transition: margin-left 0.3s ease, width 0.3s ease;
 }
 
 .sidebar-brand {

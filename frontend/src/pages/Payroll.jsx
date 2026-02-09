@@ -11,7 +11,7 @@ const Payroll = () => {
     const [payrollRecords, setPayrollRecords] = useState([]);
     const [selectedArchiveMonth, setSelectedArchiveMonth] = useState(new Date().toISOString().substr(0, 7));
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('monthly');
+    const [activeTab, setActiveTab] = useState('employees');
 
     // Modals state
     const [showEmpModal, setShowEmpModal] = useState(false);
@@ -93,9 +93,13 @@ const Payroll = () => {
     };
 
     const handleInputChange = (empId, field, value) => {
+        // Ensure numeric fields are actually Numbers to prevent string concatenation
+        const isNumeric = ['transport', 'other', 'bonus', 'days', 'advance'].includes(field);
+        const processedValue = isNumeric ? (Number(value) || 0) : value;
+
         setInputValues(prev => ({
             ...prev,
-            [empId]: { ...prev[empId], [field]: value }
+            [empId]: { ...prev[empId], [field]: processedValue }
         }));
     };
 
@@ -309,21 +313,12 @@ const Payroll = () => {
         saveAs(new Blob([buffer]), `Salary_Sheet_${selectedArchiveMonth}.xlsx`);
     };
 
+    // Employee Management Disabled - Handled in HR Module
+    /*
     const handleSaveEmployee = async (e) => {
-        e.preventDefault();
-        try {
-            if (empForm.id) {
-                await api.put(`/payroll/employees/${empForm.id}`, empForm);
-            } else {
-                await api.post('/payroll/employees', empForm);
-            }
-            setShowEmpModal(false);
-            setErrorMsg(null);
-            fetchData();
-        } catch (err) {
-            setErrorMsg(err.response?.data?.detail || 'Failed to save employee');
-        }
+        // ... code removed ...
     };
+    */
 
     const handleSaveIncrement = async (e) => {
         e.preventDefault();
@@ -397,9 +392,7 @@ const Payroll = () => {
                         <i className="fa-solid fa-box-archive me-2"></i> Finalized Records
                     </button>
 
-                    <button className={`btn flex-grow-1 ${activeTab === 'increments' ? 'btn-primary' : 'btn-light'}`} onClick={() => setActiveTab('increments')}>
-                        <i className="fa-solid fa-arrow-trend-up me-2"></i> Increments
-                    </button>
+
                     <button className={`btn flex-grow-1 ${activeTab === 'reminders' ? 'btn-primary' : 'btn-light'}`} onClick={() => setActiveTab('reminders')}>
                         <i className="fa-solid fa-bell me-2"></i> Reminders
                     </button>
@@ -549,77 +542,69 @@ const Payroll = () => {
             </div>
 
             {activeTab === 'employees' && (
-                <div className="card border-0 shadow-sm no-print">
-                    <div className="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
-                        <h5 className="mb-0 fw-bold">Active Workforce</h5>
-                        <button className="btn btn-dark btn-sm" onClick={() => { setEmpForm({ emp_id: '', name: '', department: '', designation: '', joining_date: '', employment_type: 'Full-time', base_salary: 0, status: 'Active' }); setShowEmpModal(true); }}>
-                            <i className="fa-solid fa-plus me-1"></i> Add Employee
-                        </button>
+                <div className="row g-4 no-print">
+                    <div className="col-md-8">
+                        <div className="card border-0 shadow-sm h-100">
+                            <div className="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                                <h5 className="mb-0 fw-bold">Active Workforce (Synced from HR)</h5>
+                            </div>
+                            <div className="table-responsive">
+                                <table className="table align-middle">
+                                    <thead className="bg-light">
+                                        <tr>
+                                            <th className="ps-4">EMP ID</th>
+                                            <th>Name</th>
+                                            <th>Dept / Designation</th>
+                                            <th className="text-end pe-4">Base Salary</th>
+                                            <th className="text-center">Active Increment</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {employees.map(e => (
+                                            <tr key={e.id}>
+                                                <td className="ps-4 fw-bold text-primary">{e.emp_id}</td>
+                                                <td className="fw-bold">{e.name}</td>
+                                                <td>{e.department} <br /> <small className="text-muted">{e.designation}</small></td>
+                                                <td className="text-end pe-4 fw-bold">{Number(e.base_salary).toLocaleString()}</td>
+                                                <td className="text-center">
+                                                    <button className="btn btn-sm btn-outline-success rounded-pill px-3" onClick={() => { setIncForm({ ...incForm, employee_id: e.id }); setShowIncModal(true); }}>
+                                                        <i className="fa-solid fa-arrow-up me-1"></i> Give Increment
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
-                    <div className="table-responsive">
-                        <table className="table align-middle">
-                            <thead className="bg-light">
-                                <tr>
-                                    <th className="ps-4">EMP ID</th>
-                                    <th>Name</th>
-                                    <th>Dept / Designation</th>
-                                    <th className="text-end pe-4">Base Salary</th>
-                                    <th className="text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {employees.map(e => (
-                                    <tr key={e.id}>
-                                        <td className="ps-4 fw-bold text-primary">{e.emp_id}</td>
-                                        <td className="fw-bold">{e.name}</td>
-                                        <td>{e.department} <br /> <small className="text-muted">{e.designation}</small></td>
-                                        <td className="text-end pe-4 fw-bold">{Number(e.base_salary).toLocaleString()}</td>
-                                        <td className="text-center">
-                                            <button className="btn btn-sm btn-outline-primary me-2" onClick={() => { setEmpForm(e); setShowEmpModal(true); }}><i className="fa-solid fa-pen"></i></button>
-                                            <button className="btn btn-sm btn-outline-success" onClick={() => { setIncForm({ ...incForm, employee_id: e.id }); setShowIncModal(true); }}><i className="fa-solid fa-arrow-up"></i></button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
 
-            {activeTab === 'increments' && (
-                <div className="card border-0 shadow-sm no-print">
-                    <div className="card-header bg-white border-0 py-3">
-                        <h5 className="mb-0 fw-bold">Increment History</h5>
-                    </div>
-                    <div className="table-responsive">
-                        <table className="table align-middle">
-                            <thead className="bg-light">
-                                <tr>
-                                    <th className="ps-4">Employee</th>
-                                    <th>Effective Date</th>
-                                    <th className="text-end">Amount</th>
-                                    <th className="ps-4">Remarks</th>
-                                    <th className="text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                    <div className="col-md-4">
+                        <div className="card border-0 shadow-sm h-100">
+                            <div className="card-header bg-white border-0 py-3">
+                                <h5 className="mb-0 fw-bold">Recent Increments</h5>
+                            </div>
+                            <div className="list-group list-group-flush">
+                                {increments.length === 0 && <div className="p-4 text-center text-muted">No increment history found.</div>}
                                 {increments.map(inc => (
-                                    <tr key={inc.id}>
-                                        <td className="ps-4">
+                                    <div key={inc.id} className="list-group-item p-3 border-bottom">
+                                        <div className="d-flex justify-content-between align-items-start mb-1">
                                             <div className="fw-bold">{inc.Employee?.name}</div>
-                                            <small className="text-muted">{inc.Employee?.emp_id}</small>
-                                        </td>
-                                        <td>{inc.effective_date}</td>
-                                        <td className="text-end fw-bold text-success">+{Number(inc.amount).toLocaleString()}</td>
-                                        <td className="ps-4 small text-muted">{inc.remarks}</td>
-                                        <td className="text-center">
-                                            <button className="btn btn-sm btn-light text-primary me-2" onClick={() => { setIncForm(inc); setShowIncModal(true); }}><i className="fa-solid fa-pen"></i></button>
-                                            <button className="btn btn-sm btn-light text-danger" onClick={async () => { if (window.confirm('Delete this increment record?')) { await api.delete(`/payroll/increments/${inc.id}`); fetchData(); } }}><i className="fa-solid fa-trash"></i></button>
-                                        </td>
-                                    </tr>
+                                            <div className="badge bg-success-subtle text-success border border-success border-opacity-25 rounded-pill">
+                                                +{Number(inc.amount).toLocaleString()}
+                                            </div>
+                                        </div>
+                                        <div className="d-flex justify-content-between align-items-center small text-muted">
+                                            <span>Effective: {new Date(inc.effective_date).toLocaleDateString()}</span>
+                                            <button className="btn btn-link btn-sm text-danger p-0" title="Delete Record" onClick={async () => { if (window.confirm('Delete this increment record?')) { await api.delete(`/payroll/increments/${inc.id}`); fetchData(); } }}>
+                                                <i className="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        {inc.remarks && <div className="small text-muted mt-1 fst-italic">"{inc.remarks}"</div>}
+                                    </div>
                                 ))}
-                            </tbody>
-                        </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

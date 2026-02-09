@@ -186,6 +186,19 @@ const HRDashboard = () => {
                                 </div>
                             </Link>
                         </div>
+                        <div className="col-md-6">
+                            <Link to="/hr/onboarding" className="card border-0 shadow-sm p-4 text-decoration-none hover-lift h-100">
+                                <div className="d-flex align-items-center mb-0">
+                                    <div className="bg-info bg-opacity-10 text-info rounded-4 p-3 me-3">
+                                        <i className="fa-solid fa-plane-arrival fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h5 className="fw-bold mb-1 text-dark">Onboarding HUB</h5>
+                                        <p className="text-muted small mb-0">Setup training & track new joins</p>
+                                    </div>
+                                </div>
+                            </Link>
+                        </div>
                         <div className="col-md-12">
                             <Link to="/hr/simulator" className="card border-0 shadow-sm p-3 text-decoration-none hover-lift h-100 bg-light">
                                 <div className="d-flex align-items-center justify-content-center mb-0 text-muted">

@@ -135,10 +135,43 @@ const authorize = (moduleOrRoles = []) => {
     };
 };
 
+/**
+ * Middleware: CHECK ONBOARDING STATUS
+ * Restricts access to most system features for ESS users who haven't completed onboarding.
+ */
+const checkOnboarding = async (req, res, next) => {
+    if (!req.user) return next();
+
+    // Admins/HR always bypass onboarding check
+    if (['Admin', 'HR'].includes(req.user.role)) return next();
+
+    // Bypass check if user has ANY individual module permission that is NOT 'ESS'
+    // This handles ESS users who have been 'activated' with extra modules (e.g. Accountant, HR tasks)
+    const { IndividualModulePermission } = require('../models');
+    const extraPerms = await IndividualModulePermission.countDocuments({
+        user_id: req.user._id,
+        module: { $ne: 'ESS' },
+        can_access: true
+    });
+
+    if (extraPerms > 0) return next();
+
+    if (req.user.onboarding_status !== 'Completed') {
+        // Allow onboarding-related paths and portal dashboard
+        const allowedPaths = ['/portal/onboarding', '/onboarding', '/portal/dashboard', '/portal/balances'];
+        if (allowedPaths.some(path => req.originalUrl.includes(path))) {
+            return next();
+        }
+        return res.status(403).json({ detail: 'Onboarding required' });
+    }
+    next();
+};
+
 module.exports = {
     hashPassword,
     comparePassword,
     createToken,
     authenticate,
-    authorize
+    authorize,
+    checkOnboarding
 };

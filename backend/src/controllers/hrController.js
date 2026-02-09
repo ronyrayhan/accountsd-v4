@@ -5,9 +5,11 @@ const {
     AttendanceSummary,
     LeaveRequest,
     LeaveBalance,
-    ExitRecord
+    ExitRecord,
+    Department
 } = require('../models/hrModels');
-const { Counter } = require('../models');
+const { Counter, User } = require('../models');
+const { hashPassword } = require('../middleware/auth');
 const { logger } = require('../utils/logger');
 
 // ==================== EMPLOYEE MANAGEMENT ====================
@@ -56,7 +58,12 @@ exports.getEmployee = async (req, res) => {
             return res.status(404).json({ detail: 'Employee not found' });
         }
 
-        res.json(employee);
+        // Include account info
+        const user = await User.findOne({ employee_id: employee._id }, 'username');
+        const responseData = employee.toObject();
+        responseData.account_username = user ? user.username : '';
+
+        res.json(responseData);
     } catch (error) {
         logger.error('Get employee error', { error: error.message });
         res.status(500).json({ message: error.message });
@@ -68,20 +75,24 @@ exports.getEmployee = async (req, res) => {
  */
 exports.createEmployee = async (req, res) => {
     try {
-        // Auto-generate employee_id
+        const { account_username, account_password, ...employeeData } = req.body;
+
+        // Auto-generate employee_id based on Department and serial
+        const deptName = employeeData.employment_info?.current_department;
+        const dept = await Department.findOne({ name: deptName });
+        const prefix = dept ? dept.id_prefix : 'EMP';
+
         const counter = await Counter.findByIdAndUpdate(
-            { _id: 'employee_serial' },
+            { _id: `emp_serial_${prefix}` },
             { $inc: { seq: 1 } },
             { new: true, upsert: true }
         );
-        const employee_id = `EMP${String(counter.seq).padStart(3, '0')}`;
+        const employee_id = `${prefix}${1000 + counter.seq}`;
 
-        const employeeData = {
-            ...req.body,
+        const employee = await HREmployee.create({
+            ...employeeData,
             employee_id
-        };
-
-        const employee = await HREmployee.create(employeeData);
+        });
 
         // Create initial leave balance for current year
         const currentYear = new Date().getFullYear();
@@ -89,6 +100,33 @@ exports.createEmployee = async (req, res) => {
             employee_id: employee._id,
             year: currentYear
         });
+
+        // Automatically create ESS User Account if credentials provided or based on rules
+        let finalUsername = account_username;
+        let finalPassword = account_password;
+
+        if (!finalUsername && employee.personal_info.full_name) {
+            // Rule: ESS ID is full name
+            finalUsername = employee.personal_info.full_name;
+        }
+
+        if (!finalPassword && employee.personal_info.full_name && employeeData.employment_info?.joining_date) {
+            // Rule: SD@FullNameYYYYMMDD#
+            const dateStr = new Date(employeeData.employment_info.joining_date).toISOString().split('T')[0].replace(/-/g, '');
+            finalPassword = `SD@${employee.personal_info.full_name}${dateStr}#`;
+        }
+
+        if (finalUsername && finalPassword) {
+            const hashedPassword = await hashPassword(finalPassword);
+            await User.create({
+                username: finalUsername,
+                hashed_password: hashedPassword,
+                role: 'ESS',
+                employee_id: employee._id,
+                onboarding_status: 'Pending'
+            });
+            logger.info('ESS User account created automatically', { username: finalUsername, employee_id });
+        }
 
         logger.info('Employee created', {
             employee_id,
@@ -108,14 +146,40 @@ exports.createEmployee = async (req, res) => {
  */
 exports.updateEmployee = async (req, res) => {
     try {
+        const { account_username, account_password, ...employeeData } = req.body;
+
         const employee = await HREmployee.findByIdAndUpdate(
             req.params.id,
-            req.body,
+            employeeData,
             { new: true, runValidators: true }
         );
 
         if (!employee) {
             return res.status(404).json({ detail: 'Employee not found' });
+        }
+
+        // Update or Create ESS User Account
+        if (account_username || account_password) {
+            const user = await User.findOne({ employee_id: employee._id });
+            if (user) {
+                // Only allow password update for now via this flow
+                if (account_password) {
+                    user.hashed_password = await hashPassword(account_password);
+                    await user.save();
+                    logger.info('ESS User password updated', { username: user.username });
+                }
+            } else if (account_username && account_password) {
+                // Create if doesn't exist (e.g. for old records)
+                const hashedPassword = await hashPassword(account_password);
+                await User.create({
+                    username: account_username,
+                    hashed_password: hashedPassword,
+                    role: 'ESS',
+                    employee_id: employee._id,
+                    onboarding_status: 'Pending'
+                });
+                logger.info('ESS User account created (backfill)', { username: account_username });
+            }
         }
 
         logger.info('Employee updated', {
@@ -348,24 +412,58 @@ const updateDailySummary = async (employee_id, date) => {
         const firstPunch = punches[0];
         const lastPunch = punches[punches.length - 1];
 
-        // Status Calculation based on Shift
+        // Status Calculation and early/late tracking based on Shift
         let status = 'Present';
+        let early_entry = 0;
+        let late_entry = 0;
+        let early_exit = 0;
+        let late_exit = 0;
+        let overtime_hours = 0;
+
         const employee = await HREmployee.findById(employee_id).populate('employment_info.shift_id');
         const shift = employee?.employment_info?.shift_id;
 
         if (shift && firstPunch.punch_type === 'IN') {
-            const [sHour, sMin] = shift.start_time.split(':').map(Number);
+            // Parse shift start and end times
+            const [startHour, startMin] = shift.start_time.split(':').map(Number);
+            const [endHour, endMin] = shift.end_time.split(':').map(Number);
             const graceMinutes = shift.grace_period_minutes || 0;
 
             // Shift start on the same biological day as the punch
             const shiftStartTime = new Date(firstPunch.timestamp);
-            shiftStartTime.setHours(sHour, sMin, 0, 0);
+            shiftStartTime.setHours(startHour, startMin, 0, 0);
+
+            // Create shift end time
+            const shiftEndTime = new Date(firstPunch.timestamp);
+            shiftEndTime.setHours(endHour, endMin, 0, 0);
+
+            // Handle overnight shifts
+            if (shiftEndTime < shiftStartTime) {
+                shiftEndTime.setDate(shiftEndTime.getDate() + 1);
+            }
 
             // Arrival after grace period
             const lateCutoff = new Date(shiftStartTime.getTime() + graceMinutes * 60000);
 
+            // Calculate Early Entry
+            if (firstPunch.timestamp < shiftStartTime) {
+                early_entry = Math.round((shiftStartTime - firstPunch.timestamp) / (1000 * 60));
+            }
+
+            // Calculate Late Entry
             if (firstPunch.timestamp > lateCutoff) {
+                late_entry = Math.round((firstPunch.timestamp - lateCutoff) / (1000 * 60));
                 status = 'Late';
+            }
+
+            // Calculate Early Exit and Late Exit (if punched out)
+            if (lastPunch.punch_type === 'OUT') {
+                if (lastPunch.timestamp < shiftEndTime) {
+                    early_exit = Math.round((shiftEndTime - lastPunch.timestamp) / (1000 * 60));
+                } else {
+                    late_exit = Math.round((lastPunch.timestamp - shiftEndTime) / (1000 * 60));
+                    overtime_hours = parseFloat((late_exit / 60).toFixed(2));
+                }
             }
         }
 
@@ -377,7 +475,12 @@ const updateDailySummary = async (employee_id, date) => {
                 punch_out: lastPunch.timestamp,
                 total_hours: total_hours.toFixed(2),
                 segments,
-                status
+                status,
+                early_entry,
+                late_entry,
+                early_exit,
+                late_exit,
+                overtime_hours
             },
             { upsert: true, new: true }
         );
@@ -396,25 +499,106 @@ exports.getAttendance = async (req, res) => {
 
         if (employee_id) query.employee_id = employee_id;
         if (status) query.status = status;
+
+        let dateRange = [];
         if (start_date && end_date) {
-            // Parse YYYY-MM-DD into Local Date objects to avoid timezone mismatch
-            const [y, m, d] = start_date.split('-').map(Number);
-            const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+            const [y1, m1, d1] = start_date.split('-').map(Number);
+            const start = new Date(y1, m1 - 1, d1, 0, 0, 0, 0);
 
-            const [ey, em, ed] = end_date.split('-').map(Number);
-            const end = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+            const [y2, m2, d2] = end_date.split('-').map(Number);
+            const end = new Date(y2, m2 - 1, d2, 23, 59, 59, 999);
 
-            query.date = {
-                $gte: start,
-                $lte: end
-            };
+            query.date = { $gte: start, $lte: end };
+
+            // Generate list of dates in the range for "Absent" check
+            let current = new Date(start);
+            while (current <= end) {
+                dateRange.push(new Date(current));
+                current.setDate(current.getDate() + 1);
+            }
+        } else {
+            // Default to today if no date provided
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            dateRange = [today];
+            query.date = today;
         }
 
-        const attendance = await AttendanceSummary.find(query)
+        // 1. Get existing summaries
+        const summaries = await AttendanceSummary.find(query)
             .populate('employee_id', 'employee_id personal_info.full_name employment_info.current_department')
             .sort({ date: -1 });
 
-        res.json(attendance);
+        // 2. If filtering by a specific status that isn't 'Absent', just return summaries
+        if (status && status !== 'Absent') {
+            return res.json(summaries);
+        }
+
+        // 3. Get all active employees to check for absentees
+        const empQuery = { 'employment_info.status': 'Active' };
+        if (employee_id) empQuery._id = employee_id;
+        const allEmployees = await HREmployee.find(empQuery, 'employee_id personal_info.full_name employment_info.current_department');
+
+        // 3a. Get all approved leaves that overlap with the date range
+        const overlappingLeaves = await LeaveRequest.find({
+            status: 'Approved',
+            employee_id: employee_id ? employee_id : { $exists: true }, // Filter by employee_id if provided
+            start_date: { $lte: query.date.$lte || new Date() },
+            end_date: { $gte: query.date.$gte || new Date() }
+        }).populate('leave_type', 'name');
+
+        // 4. Merge: For each date, ensure every employee has a record
+        const finalAttendance = [...summaries];
+
+        // Create a lookup map for existing records: "date_empId"
+        const existingMap = new Set(summaries.map(s => {
+            const d = new Date(s.date).toDateString();
+            const eid = s.employee_id?._id?.toString() || s.employee_id?.toString();
+            return `${d}_${eid}`;
+        }));
+
+        // Fill missing records as "Absent" or "On Leave"
+        dateRange.forEach(date => {
+            const dateStr = date.toDateString();
+            allEmployees.forEach(emp => {
+                const key = `${dateStr}_${emp._id.toString()}`;
+                if (!existingMap.has(key)) {
+                    // Check if this employee is on approved leave for this specific date
+                    const leaveOnThisDay = overlappingLeaves.find(leave =>
+                        leave.employee_id.toString() === emp._id.toString() &&
+                        date >= new Date(new Date(leave.start_date).setHours(0, 0, 0, 0)) &&
+                        date <= new Date(new Date(leave.end_date).setHours(23, 59, 59, 999))
+                    );
+
+                    finalAttendance.push({
+                        _id: `absent_${dateStr}_${emp._id}`,
+                        employee_id: emp,
+                        date: date,
+                        status: leaveOnThisDay ? 'On Leave' : 'Absent',
+                        leave_type_name: leaveOnThisDay?.leave_type?.name || null,
+                        punch_in: null,
+                        punch_out: null,
+                        total_hours: 0,
+                        early_entry: 0,
+                        late_entry: 0,
+                        early_exit: 0,
+                        late_exit: 0,
+                        overtime_hours: 0,
+                        segments: []
+                    });
+                }
+            });
+        });
+
+        // Filter by status again (in case user explicitly asked for 'Absent' or 'On Leave')
+        let result = finalAttendance;
+        if (status === 'Absent') {
+            result = finalAttendance.filter(a => a.status === 'Absent');
+        } else if (status === 'On Leave') {
+            result = finalAttendance.filter(a => a.status === 'On Leave');
+        }
+
+        res.json(result.sort((a, b) => new Date(b.date) - new Date(a.date)));
     } catch (error) {
         logger.error('Get attendance error', { error: error.message });
         res.status(500).json({ message: error.message });
@@ -553,6 +737,65 @@ exports.getLeaveBalance = async (req, res) => {
         res.json(balance);
     } catch (error) {
         logger.error('Get leave balance error', { error: error.message });
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Admin override/manual attendance entry
+ */
+exports.overrideAttendance = async (req, res) => {
+    try {
+        const { employee_id, date, punch_in, punch_out, notes } = req.body;
+
+        if (!employee_id || !date || !punch_in || !punch_out) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+
+        const employee = await HREmployee.findById(employee_id);
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+
+        // Calculate start/end of day consistently with updateDailySummary
+        const d = new Date(date);
+        const utcTime = d.getTime() + (d.getTimezoneOffset() * 60000);
+        const startOfDay = new Date(utcTime + (3600000 * 6));
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const endOfDay = new Date(startOfDay);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // 1. Delete existing punches for this specific day
+        await AttendancePunch.deleteMany({
+            employee_id,
+            timestamp: { $gte: startOfDay, $lte: endOfDay }
+        });
+
+        // 2. Create new manual punches
+        await AttendancePunch.create([
+            {
+                employee_id,
+                rfid_card_number: employee.employment_info?.rfid_card_number || 'MANUAL',
+                punch_type: 'IN',
+                timestamp: new Date(punch_in),
+                notes: notes || 'Admin Override'
+            },
+            {
+                employee_id,
+                rfid_card_number: employee.employment_info?.rfid_card_number || 'MANUAL',
+                punch_type: 'OUT',
+                timestamp: new Date(punch_out),
+                notes: notes || 'Admin Override'
+            }
+        ]);
+
+        // 3. Trigger summary update
+        await updateDailySummary(employee_id, date);
+
+        res.json({ message: 'Attendance overridden successfully' });
+    } catch (error) {
+        logger.error('Override attendance error', { error: error.message });
         res.status(500).json({ message: error.message });
     }
 };

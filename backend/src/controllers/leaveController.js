@@ -81,6 +81,10 @@ exports.applyForLeave = async (req, res) => {
             }]
         });
 
+        // SYNC BALANCE
+        const year = new Date(start_date).getFullYear();
+        await syncLeaveBalance(employee_id, year);
+
         res.status(201).json({ success: true, message: 'Leave application submitted', leaveRequest });
 
     } catch (error) {
@@ -172,6 +176,54 @@ exports.getMyBalances = async (req, res) => {
 };
 
 /**
+ * Get all leave balances (Admin view)
+ */
+exports.getAllBalances = async (req, res) => {
+    try {
+        const year = new Date().getFullYear();
+        const { HREmployee } = require('../models/hrModels');
+
+        // Fetch all active employees and their balances
+        const employees = await HREmployee.find({ 'employment_info.status': 'Active' }, 'personal_info.full_name employee_id employment_info.current_department');
+        const balances = await LeaveBalance.find({ year }).populate('balances.leave_type', 'name color');
+
+        const result = employees.map(emp => {
+            const balRec = balances.find(b => b.employee_id.toString() === emp._id.toString());
+            return {
+                _id: emp._id,
+                employee_id: emp,
+                balances: balRec ? balRec.balances : []
+            };
+        });
+
+        res.json(result);
+    } catch (error) {
+        logger.error('Error fetching all balances', { error: error.message });
+        res.status(500).json({ message: 'Failed to fetch all balances' });
+    }
+};
+
+/**
+ * Force Resync All Balances (Admin tool)
+ */
+exports.resyncAllBalances = async (req, res) => {
+    try {
+        const year = new Date().getFullYear();
+        const { HREmployee } = require('../models/hrModels');
+        const employees = await HREmployee.find({ 'employment_info.status': 'Active' });
+
+        for (const emp of employees) {
+            await syncLeaveBalance(emp._id, year);
+        }
+
+        res.json({ success: true, message: `Synced balances for ${employees.length} employees` });
+    } catch (error) {
+        logger.error('Resync all error', { error: error.message });
+        res.status(500).json({ message: 'Resync failed' });
+    }
+};
+
+/**
  * Allocate/Override Leave Quota
  */
 exports.allocateLeaves = async (req, res) => {
@@ -198,6 +250,10 @@ exports.allocateLeaves = async (req, res) => {
         }
 
         await balance.save();
+
+        // SYNC BALANCE (Recalculate used/pending)
+        await syncLeaveBalance(employee_id, year);
+
         res.json({ success: true, message: 'Leave quota updated' });
 
     } catch (error) {
@@ -238,10 +294,67 @@ exports.processLeave = async (req, res) => {
         });
 
         await leave.save();
+
+        // SYNC BALANCE
+        const year = new Date(leave.start_date).getFullYear();
+        await syncLeaveBalance(leave.employee_id, year);
+
         res.json({ success: true, message: `Leave ${action} successfully` });
 
     } catch (error) {
         logger.error('Error processing leave', { error: error.message });
         res.status(500).json({ message: 'Failed to process leave' });
+    }
+};
+
+/**
+ * Helper: Recalculate and Sync LeaveBalance collection
+ */
+const syncLeaveBalance = async (employee_id, year) => {
+    try {
+        const types = await LeaveType.find({ is_active: true });
+        let balanceRecord = await LeaveBalance.findOne({ employee_id, year });
+        if (!balanceRecord) {
+            balanceRecord = await LeaveBalance.create({ employee_id, year, balances: [] });
+        }
+
+        const usage = await LeaveRequest.aggregate([
+            {
+                $match: {
+                    employee_id: new mongoose.Types.ObjectId(employee_id),
+                    status: { $in: ['Approved', 'Pending'] },
+                    start_date: {
+                        $gte: new Date(year, 0, 1),
+                        $lt: new Date(year + 1, 0, 1)
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: '$leave_type',
+                    used: { $sum: { $cond: [{ $eq: ['$status', 'Approved'] }, '$total_days', 0] } },
+                    pending: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, '$total_days', 0] } }
+                }
+            }
+        ]);
+
+        const updatedBalances = types.map(type => {
+            const stored = balanceRecord.balances.find(b => b.leave_type.toString() === type._id.toString());
+            const usageRec = usage.find(u => u._id.toString() === type._id.toString()) || { used: 0, pending: 0 };
+
+            return {
+                leave_type: type._id,
+                total: (stored && stored.total > 0) ? stored.total : type.default_days,
+                used: usageRec.used,
+                pending: usageRec.pending,
+                reserved: stored ? stored.reserved : 0
+            };
+        });
+
+        balanceRecord.balances = updatedBalances;
+        await balanceRecord.save();
+        logger.info('Leave balance synced', { employee_id, year });
+    } catch (error) {
+        logger.error('Error syncing leave balance', { error: error.message });
     }
 };

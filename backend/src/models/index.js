@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
     hashed_password: { type: String, required: true },
     role: { type: String, enum: ['Admin', 'Accountant', 'Viewer', 'HR', 'ESS'], default: 'Viewer' },
     is_active: { type: Boolean, default: true },
+    onboarding_status: { type: String, enum: ['Pending', 'InProgress', 'Completed'], default: 'Pending' },
     employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HREmployee' } // Link to HR Profile
 }, {
     timestamps: true,
@@ -85,7 +86,8 @@ const AttachmentSchema = new mongoose.Schema({
     file_path: { type: String },
     filename: { type: String },
     transaction_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
-    bill_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Bill' }
+    bill_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Bill' },
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 });
 
 const TransactionHistorySchema = new mongoose.Schema({
@@ -177,6 +179,7 @@ EmployeeSchema.virtual('increments', {
     foreignField: 'employee_id'
 });
 
+
 const AttendanceSchema = new mongoose.Schema({
     employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
     date: { type: Date, required: true },
@@ -203,7 +206,7 @@ const AssetSchema = new mongoose.Schema({
     category: { type: String, default: 'Electronics' },
     serial_number: { type: String, unique: true, sparse: true },
     status: { type: String, enum: ['Available', 'In Use', 'Repair', 'Retired'], default: 'Available' },
-    assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+    assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'HREmployee' },
     purchase_date: { type: Date },
     purchase_value: { type: Number },
     purchased_from: { type: String },
@@ -227,7 +230,7 @@ const AssetCategorySchema = new mongoose.Schema({
 const AssetHistorySchema = new mongoose.Schema({
     asset_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Asset' }, // null if asset is deleted
     asset_name: { type: String }, // Store name for when asset is deleted
-    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' }, // null if unassigned
+    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HREmployee' }, // null if unassigned
     action: { type: String, enum: ['Assigned', 'Unassigned', 'Retired', 'Returned', 'Transferred', 'Modified', 'Deleted', 'Relocated'], required: true },
     performed_by: { type: String },
     date: { type: Date, default: Date.now },
@@ -235,14 +238,14 @@ const AssetHistorySchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const IncrementSchema = new mongoose.Schema({
-    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HREmployee', required: true },
     amount: { type: Number, required: true },
     effective_date: { type: Date, required: true },
     reason: { type: String }
 }, { timestamps: true });
 
 const PayrollRecordSchema = new mongoose.Schema({
-    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+    employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HREmployee', required: true },
     month: { type: String, required: true }, // YYYY-MM
     paid_days: { type: Number, default: 30 },
     working_days: { type: Number, default: 30 },
@@ -275,6 +278,44 @@ const ActiveSessionSchema = new mongoose.Schema({
     token_signature: { type: String } // Optional: Store part of the JWT or a session ID to validate specific tokens
 }, { timestamps: true });
 
+const OnboardingContentSchema = new mongoose.Schema({
+    type: { type: String, enum: ['Policy', 'Training', 'Software', 'Document'], required: true },
+    title: { type: String, required: true },
+    description: { type: String },
+    url: { type: String }, // For video links or external resources
+    file_path: { type: String }, // For uploaded PDFs
+    custom_html: { type: String }, // NEW: Custom template (HTML/CSS)
+    form_fields: [{
+        label: { type: String, required: true },
+        field_type: { type: String, enum: ['text', 'number', 'date', 'file', 'select'], default: 'text' },
+        options: [String], // for select field type
+        required: { type: Boolean, default: false }
+    }],
+    software_urls: [{
+        label: { type: String },
+        url: { type: String }
+    }],
+    training_resources: [{
+        resource_type: { type: String, enum: ['url', 'file'] },
+        label: { type: String },
+        value: { type: String } // URL string or file path
+    }],
+    is_mandatory: { type: Boolean, default: true },
+    order: { type: Number, default: 0 }
+}, { timestamps: true });
+
+const OnboardingProgressSchema = new mongoose.Schema({
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    content_id: { type: mongoose.Schema.Types.ObjectId, ref: 'OnboardingContent', required: true },
+    status: { type: String, enum: ['Viewed', 'Acknowledged', 'Completed'], default: 'Viewed' },
+    digital_signature: { type: String }, // Typed name for legal acknowledgment
+    signature_date: { type: Date },
+    signature_ip: { type: String },
+    progress_file_path: { type: String }, // Legacy/Single file backup
+    form_data: { type: mongoose.Schema.Types.Mixed }, // NEW: For dynamic form responses
+    completed_at: { type: Date }
+}, { timestamps: true });
+
 // Global Options for all schemas to include id virtual
 const schemaOptions = {
     toJSON: { virtuals: true },
@@ -287,7 +328,8 @@ const schemaOptions = {
     TransactionHistorySchema, AccountHistorySchema, RolePermissionSchema, AccountPermissionSchema,
     IndividualModulePermissionSchema, IndividualAccountPermissionSchema,
     BillSchema, EmployeeSchema, SystemLogSchema, CounterSchema,
-    AttendanceSchema, LeaveSchema, AssetSchema, ActiveSessionSchema, IncrementSchema, PayrollRecordSchema].forEach(schema => {
+    AttendanceSchema, LeaveSchema, AssetSchema, ActiveSessionSchema, IncrementSchema, PayrollRecordSchema,
+    OnboardingContentSchema, OnboardingProgressSchema].forEach(schema => {
         schema.virtual('id').get(function () {
             return this._id.toHexString();
         });
@@ -317,6 +359,8 @@ const Leave = mongoose.model('Leave', LeaveSchema);
 const Asset = mongoose.model('Asset', AssetSchema);
 const AssetCategory = mongoose.model('AssetCategory', AssetCategorySchema);
 const AssetHistory = mongoose.model('AssetHistory', AssetHistorySchema);
+const OnboardingContent = mongoose.model('OnboardingContent', OnboardingContentSchema);
+const OnboardingProgress = mongoose.model('OnboardingProgress', OnboardingProgressSchema);
 
 module.exports = {
     User,
@@ -343,5 +387,9 @@ module.exports = {
     Asset,
     AssetCategory,
     AssetHistory,
-    ActiveSession
+    ActiveSession,
+    OnboardingContent,
+    OnboardingProgress,
+    // HR Models
+    ...require('./hrModels')
 };

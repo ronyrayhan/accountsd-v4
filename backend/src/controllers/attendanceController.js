@@ -120,31 +120,74 @@ async function calculateSummary(employee_id, date) {
 
         const total_work_hours = (total_work_minutes / 60).toFixed(2);
 
-        // Dynamic status based on shift
+        // Dynamic status and early/late calculations based on shift
         let status = 'Present';
+        let early_entry = 0;
+        let late_entry = 0;
+        let early_exit = 0;
+        let late_exit = 0;
+        let overtime_hours = 0;
+
         const employeeRecord = await HREmployee.findById(employee_id).populate('employment_info.shift_id');
         const shift = employeeRecord?.employment_info?.shift_id;
 
-        if (shift) {
-            const [sHour, sMin] = shift.start_time.split(':').map(Number);
+        if (shift && check_in) {
+            // Parse shift start and end times
+            const [startHour, startMin] = shift.start_time.split(':').map(Number);
+            const [endHour, endMin] = shift.end_time.split(':').map(Number);
             const graceMinutes = shift.grace_period_minutes || 0;
+
+            // Create shift start time on the same date as check_in
             const shiftStartTime = new Date(check_in);
-            shiftStartTime.setHours(sHour, sMin, 0, 0);
+            shiftStartTime.setHours(startHour, startMin, 0, 0);
+
+            // Create shift end time on the same date
+            const shiftEndTime = new Date(check_in);
+            shiftEndTime.setHours(endHour, endMin, 0, 0);
+
+            // Handle overnight shifts (end time < start time)
+            if (shiftEndTime < shiftStartTime) {
+                shiftEndTime.setDate(shiftEndTime.getDate() + 1);
+            }
+
             const lateCutoff = new Date(shiftStartTime.getTime() + graceMinutes * 60000);
 
+            // Calculate Early Entry (arrived before shift start)
+            if (check_in < shiftStartTime) {
+                early_entry = Math.round((shiftStartTime - check_in) / (1000 * 60));
+            }
+
+            // Calculate Late Entry (arrived after grace period)
             if (check_in > lateCutoff) {
+                late_entry = Math.round((check_in - lateCutoff) / (1000 * 60));
                 status = 'Late';
+            }
+
+            // Calculate Early Exit and Late Exit (if checked out)
+            if (check_out) {
+                if (check_out < shiftEndTime) {
+                    // Left before shift end
+                    early_exit = Math.round((shiftEndTime - check_out) / (1000 * 60));
+                } else {
+                    // Stayed after shift end (overtime)
+                    late_exit = Math.round((check_out - shiftEndTime) / (1000 * 60));
+                    overtime_hours = parseFloat((late_exit / 60).toFixed(2));
+                }
             }
         }
 
         await AttendanceSummary.findOneAndUpdate(
             { employee_id, date },
             {
-                check_in,
-                check_out,
-                total_work_hours,
+                punch_in: check_in,
+                punch_out: check_out,
+                total_hours: total_work_hours,
                 status,
-                is_manual: false
+                early_entry,
+                late_entry,
+                early_exit,
+                late_exit,
+                overtime_hours
             },
             { upsert: true, new: true }
         );

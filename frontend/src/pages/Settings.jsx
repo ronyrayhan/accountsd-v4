@@ -26,7 +26,7 @@ const Settings = () => {
     const [newUser, setNewUser] = useState({ username: '', password: '', role: 'Viewer' });
 
     const modules = ['Dashboard', 'Ledger', 'Statements', 'Accounting', 'Reports', 'Settings', 'Users', 'Billing', 'Payroll', 'HR', 'Assets', 'Summaries'];
-    const roles = ['HR', 'Accountant', 'Viewer'];
+    const roles = ['HR', 'Accountant', 'Viewer', 'ESS'];
 
     const fetchData = async () => {
         setLoading(true);
@@ -273,6 +273,7 @@ const Settings = () => {
                                                         <option value="Viewer">Viewer (Read Only)</option>
                                                         <option value="Accountant">Accountant (Entry)</option>
                                                         <option value="HR">HR Manager</option>
+                                                        <option value="ESS">ESS (Employee Self Service)</option>
                                                         <option value="Admin">Administrator (Root)</option>
                                                     </select>
                                                 </div>

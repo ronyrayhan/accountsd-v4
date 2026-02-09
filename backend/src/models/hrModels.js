@@ -20,6 +20,7 @@ const EmployeeSchema = new mongoose.Schema({
     // Personal Information
     personal_info: {
         full_name: { type: String, required: true },
+
         date_of_birth: { type: Date },
         gender: { type: String, enum: ['Male', 'Female', 'Other'] },
         blood_group: { type: String, enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'] },
@@ -73,6 +74,12 @@ const EmployeeSchema = new mongoose.Schema({
     toJSON: { virtuals: true },
     toObject: { virtuals: true }
 });
+
+// Virtual for backward compatibility (Payroll/Asset modules expect .name)
+EmployeeSchema.virtual('name').get(function () {
+    return this.personal_info?.full_name;
+});
+
 
 // Virtual: Calculate tenure in years
 EmployeeSchema.virtual('tenure_years').get(function () {
@@ -171,6 +178,10 @@ const AttendanceSummarySchema = new mongoose.Schema({
         default: 'Absent'
     },
     overtime_hours: { type: Number, default: 0 },
+    early_entry: { type: Number, default: 0 },  // Minutes arrived before shift start
+    late_entry: { type: Number, default: 0 },   // Minutes arrived after shift start (beyond grace)
+    early_exit: { type: Number, default: 0 },   // Minutes left before shift end
+    late_exit: { type: Number, default: 0 },    // Minutes stayed after shift end
     segments: [{
         punch_in: { type: Date },
         punch_out: { type: Date },
@@ -337,6 +348,26 @@ const LeaveBalance = mongoose.model('LeaveBalance', LeaveBalanceSchema);
 const ExitRecord = mongoose.model('ExitRecord', ExitRecordSchema);
 const Shift = mongoose.model('Shift', ShiftSchema);
 
+/**
+ * Master Config Models
+ */
+const DepartmentSchema = new mongoose.Schema({
+    name: { type: String, required: true, unique: true },
+    id_prefix: { type: String, required: true, uppercase: true }
+}, { timestamps: true });
+
+const DesignationSchema = new mongoose.Schema({
+    name: { type: String, required: true, unique: true }
+}, { timestamps: true });
+
+const PositionSchema = new mongoose.Schema({
+    name: { type: String, required: true, unique: true }
+}, { timestamps: true });
+
+const Department = mongoose.model('Department', DepartmentSchema);
+const Designation = mongoose.model('Designation', DesignationSchema);
+const Position = mongoose.model('Position', PositionSchema);
+
 module.exports = {
     HREmployee,
     CareerHistory,
@@ -346,5 +377,8 @@ module.exports = {
     LeaveRequest,
     LeaveBalance,
     ExitRecord,
-    Shift
+    Shift,
+    Department,
+    Designation,
+    Position
 };

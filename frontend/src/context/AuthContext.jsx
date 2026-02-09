@@ -12,9 +12,16 @@ export const AuthProvider = ({ children }) => {
         if (token) {
             try {
                 const res = await api.get('/auth/me');
+                console.log('AuthContext: User data fetched', {
+                    username: res.data.username,
+                    role: res.data.role,
+                    navigationGroups: res.data.navigation?.length,
+                    modules: res.data.modules
+                });
                 setUser(res.data);
                 return res.data;
             } catch (err) {
+                console.error('AuthContext: Failed to fetch user', err);
                 localStorage.removeItem('access_token');
                 setUser(null);
                 return null;
