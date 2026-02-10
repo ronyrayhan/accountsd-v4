@@ -92,16 +92,46 @@ export const TransactionModal = ({ accounts, onTransactionCreated }) => {
     const [formData, setFormData] = useState({
         description: '', amount: '', currency: 'BDT', type: 'Debit',
         account_id: '', conversion_type: 'None', conversion_rate: '',
-        reference: '', date: '', transfer_target_id: ''
+        reference: '', date: '', invoice_date: '', expense_type: 'OpEx', expense_category: '', transfer_target_id: ''
     });
     const [file, setFile] = useState(null);
     const [error, setError] = useState(null);
+
+    const [expenseCategories, setExpenseCategories] = useState([]);
+    const [showAddCategory, setShowAddCategory] = useState(false);
+    const [newCategory, setNewCategory] = useState({ name: '', description: '' });
 
     useEffect(() => {
         if (accounts.length > 0 && !formData.account_id) {
             setFormData(prev => ({ ...prev, account_id: accounts[0].id }));
         }
+        fetchCategories();
     }, [accounts]);
+
+    const fetchCategories = async () => {
+        try {
+            const res = await api.get('/expense-categories');
+            setExpenseCategories(res.data);
+        } catch (err) {
+            console.error('Failed to fetch categories', err);
+        }
+    };
+
+    const handlecreateExpenseCategory = async () => {
+        if (!newCategory.name) return;
+        try {
+            const res = await api.post('/expense-categories', {
+                ...newCategory,
+                type: formData.expense_type
+            });
+            setExpenseCategories([...expenseCategories, res.data]);
+            setFormData(prev => ({ ...prev, expense_category: res.data.name }));
+            setShowAddCategory(false);
+            setNewCategory({ name: '', description: '' });
+        } catch (err) {
+            alert(err.response?.data?.message || 'Error creating category');
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -118,7 +148,7 @@ export const TransactionModal = ({ accounts, onTransactionCreated }) => {
             setFormData({
                 description: '', amount: '', currency: 'BDT', type: 'Debit',
                 account_id: accounts[0]?.id || '', conversion_type: 'None', conversion_rate: '',
-                reference: '', date: '', transfer_target_id: ''
+                reference: '', date: '', invoice_date: '', expense_type: 'OpEx', expense_category: '', transfer_target_id: ''
             });
             setFile(null);
             document.querySelector('#transactionModal .btn-close')?.click();
@@ -134,94 +164,231 @@ export const TransactionModal = ({ accounts, onTransactionCreated }) => {
 
     return (
         <div className="modal fade" id="transactionModal" tabIndex="-1">
-            <div className="modal-dialog">
-                <div className="modal-content">
-                    <div className="modal-header">
-                        <h5 className="modal-title">New Transaction</h5>
-                        <button type="button" className="btn-close" data-bs-dismiss="modal" onClick={() => setError(null)}></button>
+            <div className="modal-dialog modal-xl">
+                <div className="modal-content border-0 shadow-lg">
+                    <div className="modal-header bg-gradient border-0 py-2" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+                        <h5 className="modal-title text-white fw-bold mb-0">
+                            <i className="fa-solid fa-receipt me-2"></i>New Transaction
+                        </h5>
+                        <button type="button" className="btn-close btn-close-white" data-bs-dismiss="modal" onClick={() => setError(null)}></button>
                     </div>
-                    <div className="modal-body">
+                    <div className="modal-body p-3">
                         {error && (
-                            <div className="alert alert-danger py-2 px-3 border-0 small fw-bold mb-3 d-flex align-items-center gap-2 text-wrap" style={{ wordBreak: 'break-word' }}>
-                                <i className="fa-solid fa-triangle-exclamation"></i>
-                                {error}
+                            <div className="alert alert-danger border-0 mb-2 py-2 d-flex align-items-center gap-2" style={{ borderLeft: '4px solid #dc3545' }}>
+                                <i className="fa-solid fa-circle-exclamation"></i>
+                                <small className="flex-grow-1"><strong>Error:</strong> {error}</small>
                             </div>
                         )}
                         <form onSubmit={handleSubmit}>
-                            <div className="mb-3 text-center">
-                                <div className="btn-group w-100">
-                                    <button type="button" className={`btn ${formData.type === 'Debit' ? 'btn-danger' : 'btn-outline-danger'}`} onClick={() => setFormData({ ...formData, type: 'Debit' })}>Debit</button>
-                                    <button type="button" className={`btn ${formData.type === 'Credit' ? 'btn-success' : 'btn-outline-success'}`} onClick={() => setFormData({ ...formData, type: 'Credit' })}>Credit</button>
-                                    <button type="button" className={`btn ${formData.type === 'Transfer' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFormData({ ...formData, type: 'Transfer' })}>Transfer</button>
+                            {/* Transaction Type - Compact */}
+                            <div className="btn-group w-100 mb-2" role="group">
+                                <button
+                                    type="button"
+                                    className={`btn ${formData.type === 'Debit' ? 'btn-danger' : 'btn-outline-danger'} py-2`}
+                                    onClick={() => setFormData({ ...formData, type: 'Debit' })}
+                                >
+                                    <i className="fa-solid fa-arrow-down me-1"></i>Debit
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`btn ${formData.type === 'Credit' ? 'btn-success' : 'btn-outline-success'} py-2`}
+                                    onClick={() => setFormData({ ...formData, type: 'Credit' })}
+                                >
+                                    <i className="fa-solid fa-arrow-up me-1"></i>Credit
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`btn ${formData.type === 'Transfer' ? 'btn-primary' : 'btn-outline-primary'} py-2`}
+                                    onClick={() => setFormData({ ...formData, type: 'Transfer' })}
+                                >
+                                    <i className="fa-solid fa-exchange-alt me-1"></i>Transfer
+                                </button>
+                            </div>
+
+                            <div className="row g-3">
+
+                                {/* Left Column */}
+                                <div className="col-md-6">
+                                    {/* Account */}
+                                    <div className="mb-2">
+                                        <label className="form-label small fw-semibold mb-1">
+                                            {formData.type === 'Transfer' ? 'From Account' : 'Account'}
+                                        </label>
+                                        <select className="form-select form-select-sm" value={formData.account_id} onChange={e => setFormData({ ...formData, account_id: e.target.value })} required>
+                                            {accounts.map(a => <option key={a.id} value={a.id}>[{a.code}] {a.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {formData.type === 'Transfer' && (
+                                        <div className="mb-2">
+                                            <label className="form-label small fw-semibold mb-1">To Account</label>
+                                            <select className="form-select form-select-sm" value={formData.transfer_target_id} onChange={e => setFormData({ ...formData, transfer_target_id: e.target.value })} required>
+                                                <option value="">Select Target...</option>
+                                                {accounts.map(a => <option key={a.id} value={a.id}>[{a.code}] {a.name}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* Amount & Currency */}
+                                    <div className="row g-2 mb-2">
+                                        <div className="col-7">
+                                            <label className="form-label small fw-semibold mb-1">Amount</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                className="form-control form-control-sm"
+                                                value={formData.amount}
+                                                onChange={e => setFormData({ ...formData, amount: e.target.value })}
+                                                required
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div className="col-5">
+                                            <label className="form-label small fw-semibold mb-1">Currency</label>
+                                            <select className="form-select form-select-sm" value={formData.currency} onChange={e => setFormData({ ...formData, currency: e.target.value })}>
+                                                <option value="BDT">BDT</option>
+                                                <option value="USD">USD</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Currency Conversion */}
+                                    {formData.currency === 'USD' && (
+                                        <>
+                                            <div className="mb-2">
+                                                <label className="form-label small fw-semibold mb-1">Conversion</label>
+                                                <select className="form-select form-select-sm" value={formData.conversion_type} onChange={e => setFormData({ ...formData, conversion_type: e.target.value })}>
+                                                    <option value="None">No Conversion</option>
+                                                    <option value="Auto">Auto (Default Rate)</option>
+                                                    <option value="Manual">Manual Rate</option>
+                                                </select>
+                                            </div>
+                                            {formData.conversion_type === 'Manual' && (
+                                                <div className="mb-2">
+                                                    <label className="form-label small fw-semibold mb-1">Rate (1 USD = X BDT)</label>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="form-control form-control-sm"
+                                                        value={formData.conversion_rate}
+                                                        onChange={e => setFormData({ ...formData, conversion_rate: e.target.value })}
+                                                        placeholder="120.00"
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* Description */}
+                                    <div className="mb-2">
+                                        <label className="form-label small fw-semibold mb-1">Description</label>
+                                        <input
+                                            type="text"
+                                            className="form-control form-control-sm"
+                                            value={formData.description}
+                                            onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                            required
+                                            placeholder="e.g., Office supplies"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Right Column */}
+                                <div className="col-md-6">
+                                    {/* Expense Classification (Debit Only) */}
+                                    {formData.type === 'Debit' && (
+                                        <>
+                                            <div className="row g-2 mb-2">
+                                                <div className="col-6">
+                                                    <label className="form-label small fw-semibold mb-1">Expense Type</label>
+                                                    <select className="form-select form-select-sm" value={formData.expense_type} onChange={e => setFormData({ ...formData, expense_type: e.target.value, expense_category: '' })}>
+                                                        <option value="OpEx">OpEx</option>
+                                                        <option value="CapEx">CapEx</option>
+                                                    </select>
+                                                </div>
+                                                <div className="col-6">
+                                                    <label className="form-label small fw-semibold mb-1">Category</label>
+                                                    <div className="input-group input-group-sm">
+                                                        <select className="form-select form-select-sm" value={formData.expense_category} onChange={e => setFormData({ ...formData, expense_category: e.target.value })}>
+                                                            <option value="">Select...</option>
+                                                            {expenseCategories
+                                                                .filter(c => c.type === formData.expense_type)
+                                                                .map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-outline-secondary btn-sm"
+                                                            onClick={() => setShowAddCategory(!showAddCategory)}
+                                                        >
+                                                            <i className="fa-solid fa-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {showAddCategory && (
+                                                <div className="mb-2 p-2 border rounded bg-light">
+                                                    <div className="d-flex gap-1 mb-1">
+                                                        <input
+                                                            type="text"
+                                                            className="form-control form-control-sm"
+                                                            placeholder="Category Name"
+                                                            value={newCategory.name}
+                                                            onChange={e => setNewCategory({ ...newCategory, name: e.target.value })}
+                                                        />
+                                                        <button type="button" className="btn btn-sm btn-primary" onClick={handlecreateExpenseCategory}>
+                                                            <i className="fa-solid fa-check"></i>
+                                                        </button>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        className="form-control form-control-sm"
+                                                        placeholder="Description (Optional)"
+                                                        value={newCategory.description}
+                                                        onChange={e => setNewCategory({ ...newCategory, description: e.target.value })}
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* Invoice Date */}
+                                    <div className="mb-2">
+                                        <label className="form-label small fw-semibold mb-1">
+                                            Invoice Date <span className="text-muted">(Optional)</span>
+                                        </label>
+                                        <input
+                                            type="date"
+                                            className="form-control form-control-sm"
+                                            value={formData.invoice_date}
+                                            onChange={e => setFormData({ ...formData, invoice_date: e.target.value })}
+                                        />
+                                    </div>
+
+                                    {/* Attachment */}
+                                    <div className="mb-2">
+                                        <label className="form-label small fw-semibold mb-1">
+                                            Attachment <span className="text-muted">(Optional)</span>
+                                        </label>
+                                        <input
+                                            type="file"
+                                            className="form-control form-control-sm"
+                                            onChange={e => setFile(e.target.files[0])}
+                                            accept="image/*,application/pdf"
+                                        />
+                                        <small className="form-text text-muted">Images & PDF only</small>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="mb-3">
-                                <label className="form-label">Account</label>
-                                <select className="form-select" value={formData.account_id} onChange={e => setFormData({ ...formData, account_id: e.target.value })} required>
-                                    {accounts.map(a => <option key={a.id} value={a.id}>[{a.code}] {a.name}</option>)}
-                                </select>
-                            </div>
-
-                            {formData.type === 'Transfer' && (
-                                <div className="mb-3">
-                                    <label className="form-label">To Account</label>
-                                    <select className="form-select" value={formData.transfer_target_id} onChange={e => setFormData({ ...formData, transfer_target_id: e.target.value })} required>
-                                        <option value="">Select Target...</option>
-                                        {accounts.map(a => <option key={a.id} value={a.id}>[{a.code}] {a.name}</option>)}
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="row g-2 mb-3">
-                                <div className="col-6">
-                                    <label className="form-label">Amount</label>
-                                    <input type="number" step="0.01" className="form-control" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required />
-                                </div>
-                                <div className="col-6">
-                                    <label className="form-label">Currency</label>
-                                    <select className="form-select" value={formData.currency} onChange={e => setFormData({ ...formData, currency: e.target.value })}>
-                                        <option value="BDT">BDT</option>
-                                        <option value="USD">USD</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            {formData.currency === 'USD' && (
-                                <div className="mb-3">
-                                    <label className="form-label">Conversion Mode</label>
-                                    <select className="form-select" value={formData.conversion_type} onChange={e => setFormData({ ...formData, conversion_type: e.target.value })}>
-                                        <option value="None">No Conversion (Use USD Balance)</option>
-                                        <option value="Auto">Auto Convert to BDT (Use Default Rate)</option>
-                                        <option value="Manual">Manual Convert to BDT (Set Specific Rate)</option>
-                                    </select>
-                                </div>
-                            )}
-
-                            {formData.conversion_type === 'Manual' && (
-                                <div className="mb-3">
-                                    <label className="form-label">Exchange Rate (1 USD = X BDT)</label>
-                                    <input type="number" step="0.01" className="form-control" value={formData.conversion_rate} onChange={e => setFormData({ ...formData, conversion_rate: e.target.value })} />
-                                </div>
-                            )}
-
-                            <div className="mb-3">
-                                <label className="form-label">Description</label>
-                                <input type="text" className="form-control" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} required />
-                            </div>
-
-                            <div className="mb-3">
-                                <label className="form-label">Attachment</label>
-                                <input type="file" className="form-control" onChange={e => setFile(e.target.files[0])} accept="image/*,application/pdf" />
-                                <div className="form-text">Accepted formats: Images (JPG, PNG) and PDF.</div>
-                            </div>
-
-                            <button type="submit" className="btn btn-dark w-100">Save Transaction</button>
+                            {/* Submit Button */}
+                            <button type="submit" className="btn w-100 text-white fw-bold mt-2" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+                                <i className="fa-solid fa-check-circle me-2"></i>Save Transaction
+                            </button>
                         </form>
                     </div>
-                </div>
-            </div>
-        </div>
+                </div >
+            </div >
+        </div >
     );
 };
 

@@ -119,7 +119,7 @@ const createTransaction = async (req, res) => {
         const {
             description, amount, currency, type, account_id,
             conversion_type, conversion_rate, reference, source_type,
-            transfer_target_id, date
+            transfer_target_id, date, invoice_date, expense_type, expense_category
         } = req.body;
 
         const account = await Account.findById(account_id);
@@ -175,6 +175,7 @@ const createTransaction = async (req, res) => {
         const transaction = await withTransaction(async (session) => {
             const txnData = {
                 date: date || new Date(),
+                invoice_date: invoice_date || null,
                 description,
                 amount,
                 currency,
@@ -184,7 +185,9 @@ const createTransaction = async (req, res) => {
                 converted_amount_bdt: convAmountBdt,
                 reference,
                 source_type,
-                account_id: account._id
+                account_id: account._id,
+                expense_type: type === 'Debit' ? (expense_type || null) : null,
+                expense_category: type === 'Debit' ? (expense_category || null) : null
             };
 
             const created = session
@@ -508,7 +511,7 @@ const updateTransaction = async (req, res) => {
         }
 
         for (let key in req.body) {
-            if (txn[key] !== undefined && String(txn[key]) !== String(req.body[key])) {
+            if ((txn[key] !== undefined || key === 'invoice_date' || key === 'expense_type' || key === 'expense_category') && String(txn[key]) !== String(req.body[key])) {
                 await TransactionHistory.create({
                     transaction_id: txn._id,
                     changed_by: req.user.username,

@@ -1,4 +1,4 @@
-const { Account, Transaction, TransactionHistory, AccountHistory, GlobalSetting } = require('../models');
+const { Account, Transaction, TransactionHistory, AccountHistory, GlobalSetting, Bill } = require('../models');
 const { logger } = require('../utils/logger');
 
 /**
@@ -337,10 +337,419 @@ const getPrediction = async (req, res) => {
     }
 };
 
+const getCapexOpexStats = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const end = endDate ? new Date(endDate) : new Date();
+        end.setUTCHours(23, 59, 59, 999);
+
+        // Helper to merge aggregation results
+        const mergeResults = (txnData, billData, keyFn) => {
+            const map = new Map();
+
+            // Add transaction data
+            txnData.forEach(item => {
+                const key = keyFn(item);
+                map.set(key, {
+                    ...item,
+                    total: item.total || 0,
+                    total_usd: item.total_usd || 0
+                });
+            });
+
+            // Merge bill data
+            billData.forEach(item => {
+                const key = keyFn(item);
+                if (map.has(key)) {
+                    const existing = map.get(key);
+                    map.set(key, {
+                        ...existing,
+                        total: existing.total + (item.total || 0),
+                        total_usd: existing.total_usd + (item.total_usd || 0),
+                        count: (existing.count || 0) + (item.count || 0)
+                    });
+                } else {
+                    map.set(key, {
+                        ...item,
+                        total: item.total || 0,
+                        total_usd: item.total_usd || 0
+                    });
+                }
+            });
+
+            return Array.from(map.values());
+        };
+
+        // 1. Transaction Totals Pipeline
+        const txnTotalsPipeline = [
+            {
+                $match: {
+                    type: 'Debit',
+                    source_type: { $nin: ['Transfer', 'Exchange'] },
+                    $expr: {
+                        $and: [
+                            { $gte: [{ $ifNull: ["$invoice_date", "$date"] }, start] },
+                            { $lte: [{ $ifNull: ["$invoice_date", "$date"] }, end] }
+                        ]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: { $ifNull: ["$expense_type", "Uncategorized"] },
+                    total: { $sum: { $ifNull: ["$converted_amount_bdt", "$amount"] } },
+                    total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } },
+                    count: { $sum: 1 }
+                }
+            }
+        ];
+
+        // 2. Bill Totals Pipeline (Unpaid only)
+        const billTotalsPipeline = [
+            {
+                $match: {
+                    status: 'Unpaid',
+                    invoice_date: { $gte: start, $lte: end }
+                }
+            },
+            {
+                $group: {
+                    _id: { $ifNull: ["$expense_type", "Uncategorized"] },
+                    total: { $sum: { $cond: [{ $eq: ["$currency", "BDT"] }, "$amount", 0] } },
+                    total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } },
+                    count: { $sum: 1 }
+                }
+            }
+        ];
+
+        // 3. Transaction Trend Pipeline
+        const txnTrendPipeline = [
+            {
+                $match: {
+                    type: 'Debit',
+                    source_type: { $nin: ['Transfer', 'Exchange'] },
+                    $expr: {
+                        $and: [
+                            { $gte: [{ $ifNull: ["$invoice_date", "$date"] }, start] },
+                            { $lte: [{ $ifNull: ["$invoice_date", "$date"] }, end] }
+                        ]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        month: { $month: { $ifNull: ["$invoice_date", "$date"] } },
+                        year: { $year: { $ifNull: ["$invoice_date", "$date"] } },
+                        type: { $ifNull: ["$expense_type", "Uncategorized"] }
+                    },
+                    total: { $sum: { $ifNull: ["$converted_amount_bdt", "$amount"] } },
+                    total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } }
+                }
+            },
+            { $sort: { "_id.year": 1, "_id.month": 1 } }
+        ];
+
+        // 4. Bill Trend Pipeline
+        const billTrendPipeline = [
+            {
+                $match: {
+                    status: 'Unpaid',
+                    invoice_date: { $gte: start, $lte: end }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        month: { $month: "$invoice_date" },
+                        year: { $year: "$invoice_date" },
+                        type: { $ifNull: ["$expense_type", "Uncategorized"] }
+                    },
+                    total: { $sum: { $cond: [{ $eq: ["$currency", "BDT"] }, "$amount", 0] } },
+                    total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } }
+                }
+            },
+            { $sort: { "_id.year": 1, "_id.month": 1 } }
+        ];
+
+        // 5. Transaction Categories Pipeline
+        const txnCategoryPipeline = [
+            {
+                $match: {
+                    type: 'Debit',
+                    source_type: { $nin: ['Transfer', 'Exchange'] },
+                    $expr: {
+                        $and: [
+                            { $gte: [{ $ifNull: ["$invoice_date", "$date"] }, start] },
+                            { $lte: [{ $ifNull: ["$invoice_date", "$date"] }, end] }
+                        ]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        type: { $ifNull: ["$expense_type", "Uncategorized"] },
+                        category: { $ifNull: ["$expense_category", "Uncategorized"] }
+                    },
+                    total: { $sum: { $ifNull: ["$converted_amount_bdt", "$amount"] } },
+                    total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } }
+                }
+            },
+            { $sort: { total: -1 } }
+        ];
+
+        // 6. Bill Categories Pipeline
+        const billCategoryPipeline = [
+            {
+                $match: {
+                    status: 'Unpaid',
+                    invoice_date: { $gte: start, $lte: end }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        type: { $ifNull: ["$expense_type", "Uncategorized"] },
+                        category: { $ifNull: ["$expense_category", "Uncategorized"] }
+                    },
+                    total: { $sum: { $cond: [{ $eq: ["$currency", "BDT"] }, "$amount", 0] } },
+                    total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } }
+                }
+            },
+            { $sort: { total: -1 } }
+        ];
+
+        // Execute all aggregations in parallel
+        const [txnTotals, billTotals, txnTrend, billTrend, txnCategories, billCategories, txnList, billList] = await Promise.all([
+            Transaction.aggregate(txnTotalsPipeline),
+            Bill.aggregate(billTotalsPipeline),
+            Transaction.aggregate(txnTrendPipeline),
+            Bill.aggregate(billTrendPipeline),
+            Transaction.aggregate(txnCategoryPipeline),
+            Bill.aggregate(billCategoryPipeline),
+            Transaction.find({
+                type: 'Debit',
+                source_type: { $nin: ['Transfer', 'Exchange'] },
+                $expr: {
+                    $and: [
+                        { $gte: [{ $ifNull: ["$invoice_date", "$date"] }, start] },
+                        { $lte: [{ $ifNull: ["$invoice_date", "$date"] }, end] }
+                    ]
+                }
+            }).sort({ invoice_date: -1, date: -1 }).limit(100).populate('account_id'),
+            Bill.find({
+                status: 'Unpaid',
+                invoice_date: { $gte: start, $lte: end }
+            }).sort({ invoice_date: -1 })
+        ]);
+
+        // Merge results
+        const totals = mergeResults(txnTotals, billTotals, item => item._id);
+        const trend = mergeResults(txnTrend, billTrend, item => `${item._id.year}-${item._id.month}-${item._id.type}`);
+        const categories = mergeResults(txnCategories, billCategories, item => `${item._id.type}-${item._id.category}`);
+
+        // Normalize bills for list display
+        const normalizedBills = billList.map(bill => ({
+            _id: bill._id,
+            date: bill.invoice_date,
+            invoice_date: bill.invoice_date,
+            description: `${bill.description} (Unpaid Bill - ${bill.company_name})`,
+            amount: bill.amount,
+            currency: bill.currency,
+            expense_type: bill.expense_type,
+            expense_category: bill.expense_category,
+            account: { name: 'Accounts Payable' },
+            trx_id: 'PENDING',
+            is_pending_bill: true
+        }));
+
+        // Combine and sort list
+        const list = [...txnList, ...normalizedBills].sort((a, b) =>
+            new Date(b.invoice_date || b.date) - new Date(a.invoice_date || a.date)
+        );
+
+        res.json({ totals, trend, list, categories });
+    } catch (error) {
+        console.error('CapexOpex Error:', error);
+        res.status(500).json({ detail: error.message });
+    }
+};
+
+const exportCapexOpex = async (req, res) => {
+    try {
+        const ExcelJS = require('exceljs');
+        const { startDate, endDate } = req.query;
+        const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const end = endDate ? new Date(endDate) : new Date();
+        end.setUTCHours(23, 59, 59, 999);
+
+        // Reuse the same aggregation logic from getCapexOpexStats
+        // (Copy the pipelines and execution from getCapexOpexStats)
+        const mergeResults = (txnData, billData, keyFn) => {
+            const map = new Map();
+            txnData.forEach(item => {
+                const key = keyFn(item);
+                map.set(key, { ...item, total: item.total || 0, total_usd: item.total_usd || 0 });
+            });
+            billData.forEach(item => {
+                const key = keyFn(item);
+                if (map.has(key)) {
+                    const existing = map.get(key);
+                    map.set(key, {
+                        ...existing,
+                        total: existing.total + (item.total || 0),
+                        total_usd: existing.total_usd + (item.total_usd || 0),
+                        count: (existing.count || 0) + (item.count || 0)
+                    });
+                } else {
+                    map.set(key, { ...item, total: item.total || 0, total_usd: item.total_usd || 0 });
+                }
+            });
+            return Array.from(map.values());
+        };
+
+        // Transaction and Bill pipelines (same as getCapexOpexStats)
+        const txnTotalsPipeline = [
+            { $match: { type: 'Debit', source_type: { $nin: ['Transfer', 'Exchange'] }, $expr: { $and: [{ $gte: [{ $ifNull: ["$invoice_date", "$date"] }, start] }, { $lte: [{ $ifNull: ["$invoice_date", "$date"] }, end] }] } } },
+            { $group: { _id: { $ifNull: ["$expense_type", "Uncategorized"] }, total: { $sum: { $ifNull: ["$converted_amount_bdt", "$amount"] } }, total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } }, count: { $sum: 1 } } }
+        ];
+        const billTotalsPipeline = [
+            { $match: { status: 'Unpaid', invoice_date: { $gte: start, $lte: end } } },
+            { $group: { _id: { $ifNull: ["$expense_type", "Uncategorized"] }, total: { $sum: { $cond: [{ $eq: ["$currency", "BDT"] }, "$amount", 0] } }, total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } }, count: { $sum: 1 } } }
+        ];
+        const txnCategoryPipeline = [
+            { $match: { type: 'Debit', source_type: { $nin: ['Transfer', 'Exchange'] }, $expr: { $and: [{ $gte: [{ $ifNull: ["$invoice_date", "$date"] }, start] }, { $lte: [{ $ifNull: ["$invoice_date", "$date"] }, end] }] } } },
+            { $group: { _id: { type: { $ifNull: ["$expense_type", "Uncategorized"] }, category: { $ifNull: ["$expense_category", "Uncategorized"] } }, total: { $sum: { $ifNull: ["$converted_amount_bdt", "$amount"] } }, total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } } } },
+            { $sort: { total: -1 } }
+        ];
+        const billCategoryPipeline = [
+            { $match: { status: 'Unpaid', invoice_date: { $gte: start, $lte: end } } },
+            { $group: { _id: { type: { $ifNull: ["$expense_type", "Uncategorized"] }, category: { $ifNull: ["$expense_category", "Uncategorized"] } }, total: { $sum: { $cond: [{ $eq: ["$currency", "BDT"] }, "$amount", 0] } }, total_usd: { $sum: { $cond: [{ $eq: ["$currency", "USD"] }, "$amount", 0] } } } },
+            { $sort: { total: -1 } }
+        ];
+
+        const [txnTotals, billTotals, txnCategories, billCategories, txnList, billList] = await Promise.all([
+            Transaction.aggregate(txnTotalsPipeline),
+            Bill.aggregate(billTotalsPipeline),
+            Transaction.aggregate(txnCategoryPipeline),
+            Bill.aggregate(billCategoryPipeline),
+            Transaction.find({ type: 'Debit', source_type: { $nin: ['Transfer', 'Exchange'] }, $expr: { $and: [{ $gte: [{ $ifNull: ["$invoice_date", "$date"] }, start] }, { $lte: [{ $ifNull: ["$invoice_date", "$date"] }, end] }] } }).sort({ invoice_date: -1, date: -1 }).populate('account_id'),
+            Bill.find({ status: 'Unpaid', invoice_date: { $gte: start, $lte: end } }).sort({ invoice_date: -1 })
+        ]);
+
+        const totals = mergeResults(txnTotals, billTotals, item => item._id);
+        const categories = mergeResults(txnCategories, billCategories, item => `${item._id.type}-${item._id.category}`);
+
+        const normalizedBills = billList.map(bill => ({
+            invoice_date: bill.invoice_date,
+            date: bill.invoice_date,
+            description: `${bill.description} (Unpaid Bill - ${bill.company_name})`,
+            amount: bill.amount,
+            currency: bill.currency,
+            expense_type: bill.expense_type,
+            expense_category: bill.expense_category,
+            account: { name: 'Accounts Payable' },
+            trx_id: 'PENDING'
+        }));
+
+        const allTransactions = [...txnList, ...normalizedBills].sort((a, b) => new Date(b.invoice_date || b.date) - new Date(a.invoice_date || a.date));
+
+        // Create Excel Workbook
+        const workbook = new ExcelJS.Workbook();
+
+        // BDT Sheet
+        const bdtSheet = workbook.addWorksheet('BDT Report');
+        bdtSheet.columns = [
+            { header: 'Type', key: 'type', width: 15 },
+            { header: 'Category', key: 'category', width: 20 },
+            { header: 'Amount (BDT)', key: 'amount', width: 15 }
+        ];
+
+        // Add summary
+        bdtSheet.addRow(['SUMMARY']);
+        totals.forEach(t => {
+            bdtSheet.addRow({ type: t._id, category: 'Total', amount: t.total });
+        });
+        bdtSheet.addRow([]);
+
+        // Add categories
+        bdtSheet.addRow(['CATEGORY BREAKDOWN']);
+        categories.forEach(c => {
+            bdtSheet.addRow({ type: c._id.type, category: c._id.category, amount: c.total });
+        });
+        bdtSheet.addRow([]);
+
+        // Add transactions
+        bdtSheet.addRow(['TRANSACTIONS']);
+        bdtSheet.addRow(['Date', 'Invoice Date', 'Description', 'Type', 'Category', 'Amount (BDT)', 'Account', 'TRX ID']);
+        allTransactions.filter(t => t.currency === 'BDT' || !t.currency).forEach(t => {
+            bdtSheet.addRow([
+                t.date ? new Date(t.date).toLocaleDateString() : '',
+                t.invoice_date ? new Date(t.invoice_date).toLocaleDateString() : '',
+                t.description,
+                t.expense_type,
+                t.expense_category,
+                t.amount,
+                t.account?.name || t.account_id?.name || '',
+                t.trx_id
+            ]);
+        });
+
+        // USD Sheet
+        const usdSheet = workbook.addWorksheet('USD Report');
+        usdSheet.columns = [
+            { header: 'Type', key: 'type', width: 15 },
+            { header: 'Category', key: 'category', width: 20 },
+            { header: 'Amount (USD)', key: 'amount', width: 15 }
+        ];
+
+        usdSheet.addRow(['SUMMARY']);
+        totals.forEach(t => {
+            usdSheet.addRow({ type: t._id, category: 'Total', amount: t.total_usd });
+        });
+        usdSheet.addRow([]);
+
+        usdSheet.addRow(['CATEGORY BREAKDOWN']);
+        categories.forEach(c => {
+            usdSheet.addRow({ type: c._id.type, category: c._id.category, amount: c.total_usd });
+        });
+        usdSheet.addRow([]);
+
+        usdSheet.addRow(['TRANSACTIONS']);
+        usdSheet.addRow(['Date', 'Invoice Date', 'Description', 'Type', 'Category', 'Amount (USD)', 'Account', 'TRX ID']);
+        allTransactions.filter(t => t.currency === 'USD').forEach(t => {
+            usdSheet.addRow([
+                t.date ? new Date(t.date).toLocaleDateString() : '',
+                t.invoice_date ? new Date(t.invoice_date).toLocaleDateString() : '',
+                t.description,
+                t.expense_type,
+                t.expense_category,
+                t.amount,
+                t.account?.name || t.account_id?.name || '',
+                t.trx_id
+            ]);
+        });
+
+        // Send file
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=CapEx_OpEx_Report_${start.toISOString().split('T')[0]}_to_${end.toISOString().split('T')[0]}.xlsx`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        console.error('Export Error:', error);
+        res.status(500).json({ detail: error.message });
+    }
+};
+
 module.exports = {
     getTrialBalance,
     getCustomSummary,
     getStats,
     getSystemLogs,
-    getPrediction
+    getPrediction,
+    getCapexOpexStats,
+    exportCapexOpex
 };

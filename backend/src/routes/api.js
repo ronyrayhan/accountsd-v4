@@ -111,6 +111,8 @@ router.post('/settings', authenticate, authorize('Admin'), settingController.set
 router.get('/reports/trial-balance', authenticate, authorize('Reports'), reportController.getTrialBalance);
 router.get('/reports/custom', authenticate, authorize('Reports'), reportController.getCustomSummary);
 router.get('/reports/prediction', authenticate, authorize('Reports'), reportController.getPrediction);
+router.get('/reports/capex-opex', authenticate, authorize(['Reports', 'Dashboard', 'Admin']), reportController.getCapexOpexStats);
+router.get('/reports/capex-opex/export', authenticate, authorize(['Reports', 'Dashboard', 'Admin']), reportController.exportCapexOpex);
 router.get('/stats/accounts', authenticate, authorize(['Dashboard', 'Reports', 'Admin']), reportController.getStats);
 router.get('/logs', authenticate, authorize('Admin'), reportController.getSystemLogs);
 
@@ -147,6 +149,7 @@ const billingController = require('../controllers/billingController');
 router.get('/bills', authenticate, authorize('Billing'), billingController.getBills);
 router.post('/bills', authenticate, authorize('Billing'), upload.single('file'), billingController.createBill);
 router.patch('/bills/:id/status', authenticate, authorize('Billing'), billingController.updateBillStatus);
+router.post('/bills/:id/pay', authenticate, authorize('Billing'), billingController.payBill);
 router.delete('/bills/:id', authenticate, authorize('Billing'), billingController.deleteBill);
 
 // PAYROLL (ADDON)
@@ -193,6 +196,11 @@ router.post('/hr/designations', authenticate, authorize(['HR', 'Admin']), master
 
 router.get('/hr/positions', authenticate, masterController.getPositions);
 router.post('/hr/positions', authenticate, authorize(['HR', 'Admin']), masterController.createPosition);
+
+// Expense Categories
+router.get('/expense-categories', authenticate, masterController.getExpenseCategories);
+router.post('/expense-categories', authenticate, authorize(['Accounting', 'Admin']), masterController.createExpenseCategory);
+router.delete('/expense-categories/:id', authenticate, authorize(['Accounting', 'Admin']), masterController.deleteExpenseCategory);
 
 // RFID Attendance
 router.post('/hr/attendance/rfid-punch', authenticateDevice, hrController.rfidPunch);

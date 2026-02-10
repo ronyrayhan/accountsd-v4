@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import api from '../../api/axios';
+import { getFileURL } from '../../utils/urlHelper';
 
 const EmployeeProfile = () => {
     const { id } = useParams();
@@ -403,7 +404,7 @@ const EmployeeProfile = () => {
                                                             </button>
                                                         )}
                                                         {p.progress_file_path && (
-                                                            <a href={`http://localhost:5000/${p.progress_file_path}`} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-outline-secondary py-0 px-2 rounded-pill x-small mt-1 d-inline-block">
+                                                            <a href={`${getFileURL(p.progress_file_path)}`} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-outline-secondary py-0 px-2 rounded-pill x-small mt-1 d-inline-block">
                                                                 <i className="fa-solid fa-file-pdf me-1"></i> File
                                                             </a>
                                                         )}
@@ -526,7 +527,7 @@ const EmployeeProfile = () => {
                                             <div key={idx} className={`mb-3 ${idx < Object.entries(viewingOnboard.form_data || {}).length - 1 ? 'border-bottom pb-2' : ''}`}>
                                                 <label className="extra-small fw-bold text-muted text-uppercase d-block mb-1">{key}</label>
                                                 {typeof value === 'string' && (value.includes('uploads/') || value.includes('uploads\\')) ? (
-                                                    <a href={`http://localhost:5000/${value}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-light rounded-pill px-3 mt-1 shadow-sm border">
+                                                    <a href={`${getFileURL(value)}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-light rounded-pill px-3 mt-1 shadow-sm border">
                                                         <i className="fa-solid fa-file-image me-2 text-primary"></i> View Uploaded File
                                                     </a>
                                                 ) : (

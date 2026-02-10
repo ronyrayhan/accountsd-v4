@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import { getFileURL } from '../../utils/urlHelper';
 
 const OnboardingStepper = ({ onComplete }) => {
     const [status, setStatus] = useState('Pending');
@@ -174,7 +175,7 @@ const OnboardingStepper = ({ onComplete }) => {
                             {currentMaterial.file_path ? (
                                 <div className="border rounded-4 overflow-hidden shadow-sm" style={{ height: '500px' }}>
                                     <iframe
-                                        src={`http://localhost:5000/${currentMaterial.file_path}#toolbar=0`}
+                                        src={`${getFileURL(currentMaterial.file_path)}#toolbar=0`}
                                         width="100%"
                                         height="100%"
                                         title="Policy Document"
@@ -188,7 +189,7 @@ const OnboardingStepper = ({ onComplete }) => {
                                 </div>
                             )}
                             <div className="mt-3 text-end">
-                                <a href={`http://localhost:5000/${currentMaterial.file_path}`} target="_blank" rel="noopener noreferrer" className="x-small text-decoration-none">
+                                <a href={`${getFileURL(currentMaterial.file_path)}`} target="_blank" rel="noopener noreferrer" className="x-small text-decoration-none">
                                     <i className="fa-solid fa-up-right-from-square me-1"></i> Open in New Tab
                                 </a>
                             </div>
@@ -265,7 +266,7 @@ const OnboardingStepper = ({ onComplete }) => {
                                 {currentMaterial.training_resources?.map((res, idx) => (
                                     <div key={idx} className="col-md-6">
                                         <a
-                                            href={res.resource_type === 'file' ? `http://localhost:5000/${res.value}` : res.value}
+                                            href={res.resource_type === 'file' ? `${getFileURL(res.value)}` : res.value}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="btn btn-light w-100 text-start p-3 rounded-3 border-0 shadow-sm d-flex align-items-center"

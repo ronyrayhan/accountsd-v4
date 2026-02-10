@@ -45,10 +45,13 @@ const AccountSchema = new mongoose.Schema({
 // Transaction Schema: Stores every financial movement.
 const TransactionSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now },
+    invoice_date: { type: Date },
     description: { type: String },
     amount: { type: Number, required: true },
     currency: { type: String, default: 'BDT' }, // 'BDT' or 'USD'
     type: { type: String, required: true }, // 'Debit' (Outgoing) or 'Credit' (Incoming)
+    expense_type: { type: String, enum: ['CapEx', 'OpEx', null], default: null }, // Capital vs Operational Expenditure
+    expense_category: { type: String }, // Dynamic Category (e.g. 'Rent', 'Equipment')
     conversion_type: { type: String, default: 'None' }, // 'None', 'Manual', 'Auto'
     conversion_rate: { type: Number }, // Exchange rate used
     converted_amount_bdt: { type: Number }, // Equivalent BDT value if USD
@@ -145,6 +148,8 @@ const BillSchema = new mongoose.Schema({
     company_name: { type: String, required: true },
     amount: { type: Number, required: true },
     currency: { type: String, default: 'BDT' },
+    expense_type: { type: String, enum: ['CapEx', 'OpEx', null], default: null },
+    expense_category: { type: String },
     status: { type: String, enum: ['Unpaid', 'Paid', 'Partial'], default: 'Unpaid' }
 }, { timestamps: true });
 
@@ -225,6 +230,13 @@ AssetSchema.virtual('history', {
 const AssetCategorySchema = new mongoose.Schema({
     name: { type: String, required: true, unique: true },
     description: { type: String }
+}, { timestamps: true });
+
+const ExpenseCategorySchema = new mongoose.Schema({
+    name: { type: String, required: true, unique: true },
+    type: { type: String, enum: ['CapEx', 'OpEx'], required: true },
+    description: { type: String },
+    is_active: { type: Boolean, default: true }
 }, { timestamps: true });
 
 const AssetHistorySchema = new mongoose.Schema({
@@ -358,6 +370,7 @@ const Attendance = mongoose.model('Attendance', AttendanceSchema);
 const Leave = mongoose.model('Leave', LeaveSchema);
 const Asset = mongoose.model('Asset', AssetSchema);
 const AssetCategory = mongoose.model('AssetCategory', AssetCategorySchema);
+const ExpenseCategory = mongoose.model('ExpenseCategory', ExpenseCategorySchema);
 const AssetHistory = mongoose.model('AssetHistory', AssetHistorySchema);
 const OnboardingContent = mongoose.model('OnboardingContent', OnboardingContentSchema);
 const OnboardingProgress = mongoose.model('OnboardingProgress', OnboardingProgressSchema);
@@ -386,6 +399,7 @@ module.exports = {
     Leave,
     Asset,
     AssetCategory,
+    ExpenseCategory,
     AssetHistory,
     ActiveSession,
     OnboardingContent,

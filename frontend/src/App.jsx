@@ -9,6 +9,7 @@ import Ledger from './pages/Ledger';
 import Reports from './pages/Reports';
 import Logs from './pages/Logs';
 import AccountStatement from './pages/AccountStatement';
+import CapexOpexDashboard from './pages/CapexOpexDashboard';
 import Settings from './pages/Settings';
 import Billing from './pages/Billing';
 import Payroll from './pages/Payroll';
@@ -89,6 +90,15 @@ function AppRoutes() {
           element={
             <ProtectedRoute module="Reports">
               <Reports />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/capex-opex"
+          element={
+            <ProtectedRoute module="Reports">
+              <CapexOpexDashboard />
             </ProtectedRoute>
           }
         />

@@ -1,0 +1,29 @@
+[
+  {
+    "_id": "6980f870ad453bbcb4a09370",
+    "date": "2026-02-02T18:00:00.000Z",
+    "employee_id": "6980f85f9680ff29dda3a0b6",
+    "__v": 0,
+    "createdAt": "2026-02-02T19:18:08.482Z",
+    "overtime_hours": 0,
+    "punch_in": "2026-02-02T19:18:08.470Z",
+    "punch_out": "2026-02-02T19:24:56.973Z",
+    "segments": [
+      {
+        "punch_in": "2026-02-02T19:18:08.470Z",
+        "punch_out": "2026-02-02T19:18:10.806Z",
+        "duration": 0.0006488888888888888,
+        "_id": "6980fa0916a6eef701553678"
+      },
+      {
+        "punch_in": "2026-02-02T19:24:56.973Z",
+        "punch_out": null,
+        "duration": 0,
+        "_id": "6980fa0916a6eef701553679"
+      }
+    ],
+    "status": "Present",
+    "total_hours": 0,
+    "updatedAt": "2026-02-02T19:24:56.998Z"
+  }
+]

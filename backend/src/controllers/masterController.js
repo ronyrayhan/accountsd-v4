@@ -50,11 +50,42 @@ exports.getPositions = async (req, res) => {
     }
 };
 
+
 exports.createPosition = async (req, res) => {
     try {
         const position = await Position.create(req.body);
         res.status(201).json(position);
     } catch (error) {
         res.status(400).json({ message: error.message });
+    }
+};
+
+// Expense Categories
+exports.getExpenseCategories = async (req, res) => {
+    try {
+        const categories = await require('../models').ExpenseCategory.find({ is_active: true }).sort('name');
+        res.json(categories);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.createExpenseCategory = async (req, res) => {
+    try {
+        const { name, type, description } = req.body;
+        const category = await require('../models').ExpenseCategory.create({ name, type, description });
+        res.status(201).json(category);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+exports.deleteExpenseCategory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await require('../models').ExpenseCategory.findByIdAndUpdate(id, { is_active: false });
+        res.json({ message: 'Category deactivated' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 };

@@ -152,6 +152,7 @@ const getMe = async (req, res) => {
                     { module: 'Dashboard', label: 'Dashboard', path: '/', icon: 'fa-solid fa-house' },
                     { module: 'Ledger', label: 'Transaction Ledger', path: '/ledger', icon: 'fa-solid fa-receipt' },
                     { module: 'Reports', label: 'Analytics', path: '/reports', icon: 'fa-solid fa-chart-pie' },
+                    { module: 'Reports', label: 'CapEx/OpEx Dashboard', path: '/capex-opex', icon: 'fa-solid fa-chart-column' },
                     { module: 'Summaries', label: 'Financial Snapshots', path: '/summaries', icon: 'fa-solid fa-clock-rotate-left' },
                     { module: 'Billing', label: 'Billing & Payables', path: '/billing', icon: 'fa-solid fa-file-invoice-dollar' }
                 ]

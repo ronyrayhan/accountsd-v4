@@ -1,5 +1,10 @@
 import axios from 'axios';
 
+// Helper to get the backend base URL (for file viewing)
+const getBackendBaseURL = () => {
+    return import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+};
+
 const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const api = axios.create({ baseURL });
 
@@ -56,4 +61,5 @@ api.interceptors.response.use(
     }
 );
 
+export { getBackendBaseURL };
 export default api;

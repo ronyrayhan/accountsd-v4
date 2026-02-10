@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import api from '../../api/axios';
+import { getFileURL } from '../../utils/urlHelper';
 
 const OnboardingManagement = () => {
     const [materials, setMaterials] = useState([]);
@@ -197,7 +198,7 @@ const OnboardingManagement = () => {
                                                 <td>{mat.is_mandatory ? <i className="fa-solid fa-circle-check text-success"></i> : <i className="fa-solid fa-circle-minus text-muted"></i>}</td>
                                                 <td className="text-end">
                                                     {mat.file_path && (
-                                                        <a href={`http://localhost:5000/${mat.file_path}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-secondary border-0 h-auto p-2 me-2">
+                                                        <a href={`${getFileURL(mat.file_path)}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-secondary border-0 h-auto p-2 me-2">
                                                             <i className="fa-solid fa-file-lines"></i>
                                                         </a>
                                                     )}
@@ -257,7 +258,7 @@ const OnboardingManagement = () => {
                                                             <i className="fa-solid fa-eye me-1"></i> View Data
                                                         </button>
                                                     ) : p.progress_file_path ? (
-                                                        <a href={`http://localhost:5000/${p.progress_file_path}`} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-outline-primary py-0 px-2 rounded-pill x-small">
+                                                        <a href={`${getFileURL(p.progress_file_path)}`} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-outline-primary py-0 px-2 rounded-pill x-small">
                                                             <i className="fa-solid fa-download me-1"></i> Download File
                                                         </a>
                                                     ) : 'N/A'}
@@ -485,7 +486,7 @@ const OnboardingManagement = () => {
                                         <div key={idx} className={`mb-3 ${idx < Object.entries(viewingForm.form_data).length - 1 ? 'border-bottom pb-2' : ''}`}>
                                             <label className="extra-small fw-bold text-muted text-uppercase d-block mb-1">{key}</label>
                                             {typeof value === 'string' && (value.includes('uploads/') || value.includes('uploads\\')) ? (
-                                                <a href={`http://localhost:5000/${value}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 mt-1">
+                                                <a href={`${getFileURL(value)}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 mt-1">
                                                     <i className="fa-solid fa-file-image me-2"></i> View Uploaded File
                                                 </a>
                                             ) : (

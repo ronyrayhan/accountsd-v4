@@ -15,10 +15,16 @@ const Billing = () => {
         description: '',
         company_name: '',
         amount: '',
-        currency: 'BDT'
+        currency: 'BDT',
+        expense_type: 'OpEx',
+        expense_category: ''
     });
     const [file, setFile] = useState(null);
     const [error, setError] = useState(null);
+    const [accounts, setAccounts] = useState([]);
+    const [expenseCategories, setExpenseCategories] = useState([]);
+    const [showPayModal, setShowPayModal] = useState(false);
+    const [payData, setPayData] = useState({ bill: null, account_id: '', date: new Date().toISOString().split('T')[0] });
 
     const fetchBills = async () => {
         try {
@@ -31,8 +37,22 @@ const Billing = () => {
         }
     };
 
+    const fetchData = async () => {
+        try {
+            const [accRes, catRes] = await Promise.all([
+                api.get('/accounts'),
+                api.get('/expense-categories')
+            ]);
+            setAccounts(accRes.data);
+            setExpenseCategories(catRes.data);
+        } catch (err) {
+            console.error("Failed to fetch dependencies", err);
+        }
+    };
+
     useEffect(() => {
         fetchBills();
+        fetchData();
     }, []);
 
     const handleCreate = async (e) => {
@@ -51,7 +71,9 @@ const Billing = () => {
                 description: '',
                 company_name: '',
                 amount: '',
-                currency: 'BDT'
+                currency: 'BDT',
+                expense_type: 'OpEx',
+                expense_category: ''
             });
             setFile(null);
             setError(null);
@@ -64,11 +86,33 @@ const Billing = () => {
     };
 
     const updateStatus = async (id, status) => {
+        if (status === 'Paid') {
+            const bill = bills.find(b => b.id === id);
+            setPayData({ ...payData, bill, account_id: '' });
+            setShowPayModal(true);
+            return;
+        }
         try {
             await api.patch(`/bills/${id}/status`, { status });
             fetchBills();
         } catch (err) {
             alert('Failed to update status');
+        }
+    };
+
+    const handlePayBill = async (e) => {
+        e.preventDefault();
+        if (!payData.account_id) return alert('Please select an account');
+
+        try {
+            await api.post(`/bills/${payData.bill.id}/pay`, {
+                account_id: payData.account_id,
+                date: payData.date
+            });
+            setShowPayModal(false);
+            fetchBills();
+        } catch (err) {
+            alert(err.response?.data?.detail || 'Payment failed');
         }
     };
 
@@ -248,6 +292,27 @@ const Billing = () => {
                                     </div>
                                     <div className="row g-3 mb-3">
                                         <div className="col-6">
+                                            <label className="form-label small fw-bold">Expense Type</label>
+                                            <select className="form-select" value={newBill.expense_type} onChange={e => setNewBill({ ...newBill, expense_type: e.target.value, expense_category: '' })}>
+                                                <option value="OpEx">OpEx</option>
+                                                <option value="CapEx">CapEx</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-6">
+                                            <label className="form-label small fw-bold">Category</label>
+                                            <select className="form-select" value={newBill.expense_category} onChange={e => setNewBill({ ...newBill, expense_category: e.target.value })}>
+                                                <option value="">Select Category</option>
+                                                {expenseCategories
+                                                    .filter(c => c.type === newBill.expense_type)
+                                                    .map(c => (
+                                                        <option key={c._id} value={c.name}>{c.name}</option>
+                                                    ))
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="row g-3 mb-3">
+                                        <div className="col-6">
                                             <label className="form-label small fw-bold">Invoice Date</label>
                                             <input type="date" className="form-control" value={newBill.invoice_date} onChange={e => setNewBill({ ...newBill, invoice_date: e.target.value })} />
                                         </div>
@@ -265,6 +330,47 @@ const Billing = () => {
                                     <button type="button" className="btn btn-light" onClick={() => setShowModal(false)}>Cancel</button>
                                     <button type="submit" className="btn btn-primary px-4 fw-bold" disabled={processing}>
                                         {processing ? 'Saving...' : 'Register Bill'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Pay Modal */}
+            {showPayModal && payData.bill && (
+                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <div className="modal-dialog modal-dialog-centered">
+                        <div className="modal-content border-0 shadow-lg">
+                            <div className="modal-header border-0 pb-0">
+                                <h5 className="fw-bold">Pay Bill: {payData.bill.company_name}</h5>
+                                <button type="button" className="btn-close" onClick={() => setShowPayModal(false)}></button>
+                            </div>
+                            <form onSubmit={handlePayBill}>
+                                <div className="modal-body">
+                                    <div className="mb-3">
+                                        <p className="mb-1">Amount to Pay:</p>
+                                        <h3 className="fw-bold text-primary">{Number(payData.bill.amount).toLocaleString()} {payData.bill.currency}</h3>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label small fw-bold">From Account</label>
+                                        <select className="form-select" required value={payData.account_id} onChange={e => setPayData({ ...payData, account_id: e.target.value })}>
+                                            <option value="">Select Source Account</option>
+                                            {accounts.map(acc => (
+                                                <option key={acc._id} value={acc._id}>{acc.name} ({acc.type}) - {acc.current_balance_bdt} BDT</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label small fw-bold">Payment Date</label>
+                                        <input type="date" className="form-control" required value={payData.date} onChange={e => setPayData({ ...payData, date: e.target.value })} />
+                                    </div>
+                                </div>
+                                <div className="modal-footer border-0 pt-0">
+                                    <button type="button" className="btn btn-light" onClick={() => setShowPayModal(false)}>Cancel</button>
+                                    <button type="submit" className="btn btn-success px-4 fw-bold">
+                                        Confirm Payment
                                     </button>
                                 </div>
                             </form>
