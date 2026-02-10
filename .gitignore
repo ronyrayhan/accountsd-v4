@@ -1,3 +1,5 @@
 accountsd-v4.3.7z
 accountsd-v4.4.7z
 For-vercel/
+/backend/logs
+/node_modules
