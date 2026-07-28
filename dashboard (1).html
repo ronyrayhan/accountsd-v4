@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Live activity — accountsd-v4</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14;
+    --surface:#12161F;
+    --surface-2:#191F2C;
+    --surface-3:#1F2635;
+    --border:#262D3D;
+    --border-soft:#1B2130;
+    --text:#E7EAF2;
+    --text-dim:#8791A6;
+    --text-faint:#565F73;
+    --teal:#4FD1C5;
+    --teal-dim:#2B7A72;
+    --amber:#F0A83B;
+    --amber-dim:#8A6221;
+    --indigo:#7C89F9;
+    --indigo-dim:#454C99;
+    --red:#E2574C;
+    --red-dim:#7A2E28;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    padding:28px;
+    min-height:100vh;
+  }
+  .wrap{max-width:1440px;margin:0 auto;}
+  svg.icn{display:block;flex-shrink:0;}
+
+  /* ---------- header ---------- */
+  .header{
+    display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap; gap:16px;
+    margin-bottom:18px;
+  }
+  .header-left{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+  .eyebrow{
+    display:flex;align-items:center;gap:8px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+    color:var(--text-dim); font-weight:500;
+  }
+  .live-dot{
+    width:7px;height:7px;border-radius:50%;background:var(--teal);
+    box-shadow:0 0 0 0 rgba(79,209,197,.6);
+    animation:pulse 1.8s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(79,209,197,.55);}
+    70%{box-shadow:0 0 0 7px rgba(79,209,197,0);}
+    100%{box-shadow:0 0 0 0 rgba(79,209,197,0);}
+  }
+  .tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px;}
+  .tab{
+    display:flex;align-items:center;gap:6px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;font-weight:500;
+    padding:6px 12px;border-radius:6px;color:var(--text-faint);cursor:pointer;
+    transition:.15s;
+  }
+  .tab.active{background:var(--surface-3);color:var(--teal);}
+  .tab:not(.active):hover{color:var(--text-dim);}
+  .meta{font-size:12.5px;color:var(--text-faint);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .meta b{color:var(--text-dim);font-weight:500;}
+  .meta .dot{width:3px;height:3px;border-radius:50%;background:var(--text-faint);}
+  .meta .src-count{display:flex;align-items:center;gap:5px;font-family:var(--mono);}
+
+  .header-right{display:flex;align-items:center;gap:10px;}
+  select, .btn{
+    font-family:var(--sans);font-size:13px;color:var(--text);
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:8px;padding:8px 14px;cursor:pointer;
+  }
+  select{appearance:none;padding-right:30px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238791A6' stroke-width='1.4' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;
+  }
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:#04241F;font-weight:600;display:flex;align-items:center;gap:7px;}
+  .btn.primary:hover{background:#5EDBCF;}
+
+  /* ---------- stat groups ---------- */
+  .stat-groups{display:grid;grid-template-columns:1.9fr 1.5fr 0.8fr;gap:14px;margin-bottom:16px;}
+  .stat-group{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .sg-head{
+    display:flex;align-items:center;gap:9px;padding:12px 16px;
+    border-bottom:1px solid var(--border-soft);background:var(--surface-2);
+  }
+  .sg-head .platform-icn{width:16px;height:16px;color:var(--text-dim);}
+  .sg-head .platform-name{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--text-dim);flex:1;}
+  .sg-head .sg-total{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text);}
+  .sg-head .sg-total.zero{color:var(--text-faint);}
+  .sg-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));}
+  .sg-tile{
+    padding:12px 12px;border-right:1px solid var(--border-soft);border-top:1px solid var(--border-soft);
+    display:flex;flex-direction:column;gap:7px;transition:background .15s;
+  }
+  .sg-tile:hover{background:var(--surface-2);}
+  .sg-tile .tic{width:14px;height:14px;color:var(--text-faint);}
+  .sg-tile .n{font-family:var(--mono);font-size:19px;font-weight:600;color:var(--text);}
+  .sg-tile .l{font-size:10.5px;color:var(--text-faint);}
+  .sg-tile.accent .n{color:var(--teal);}
+  .sg-tile.accent .tic{color:var(--teal-dim);}
+  .sg-tile.warn .n{color:var(--amber);}
+  .sg-tile.warn .tic{color:var(--amber-dim);}
+  .sg-tile.danger .n{color:var(--red);}
+  .sg-tile.danger .tic{color:var(--red-dim);}
+  .stat-group.slack .sg-tiles{grid-template-columns:1fr;}
+  .stat-group.slack .sg-tile{border-right:none;}
+
+  /* ---------- timeline ---------- */
+  .timeline{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:16px 20px 12px;margin-bottom:16px;
+  }
+  .timeline-head{
+    display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;
+  }
+  .timeline-title{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--text-faint);}
+  .timeline-title svg{color:var(--text-faint);}
+  .timeline-now{font-family:var(--mono);font-size:11px;color:var(--teal);}
+  .bars{display:flex;align-items:flex-end;gap:3px;height:56px;}
+  .bar{flex:1;background:var(--indigo-dim);border-radius:2px 2px 0 0;min-height:3px;position:relative;transition:.15s;}
+  .bar:hover{background:var(--indigo);}
+  .bar.now{background:var(--teal);}
+  .bar.now:hover{background:var(--teal);}
+  .hours{display:flex;gap:3px;margin-top:8px;}
+  .hours span{flex:1;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-faint);}
+
+  /* ---------- grid ---------- */
+  .grid{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:16px;align-items:start;}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .panel-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 18px;border-bottom:1px solid var(--border-soft);
+  }
+  .panel-title{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--text-faint);}
+  .panel-title svg{color:var(--text-faint);}
+  .panel-count{font-family:var(--mono);font-size:11px;color:var(--text-dim);background:var(--surface-3);padding:2px 8px;border-radius:20px;}
+
+  /* ---------- feed ---------- */
+  .feed{position:relative;padding:6px 18px 10px;}
+  .feed::before{
+    content:"";position:absolute;left:29px;top:8px;bottom:8px;width:1px;background:var(--border);
+  }
+  .feed-item{display:flex;gap:14px;padding:12px 0;position:relative;}
+  .feed-item + .feed-item{border-top:1px solid var(--border-soft);}
+  .dot-col{width:8px;display:flex;justify-content:center;padding-top:4px;flex-shrink:0;}
+  .fdot{width:8px;height:8px;border-radius:50%;background:var(--surface-3);border:2px solid var(--text-faint);position:relative;z-index:1;}
+  .fdot.pr{border-color:var(--indigo);}
+  .fdot.push{border-color:var(--teal);}
+  .fdot.branch{border-color:var(--amber);}
+  .fdot.commit{border-color:var(--text-dim);}
+  .fbody{flex:1;min-width:0;}
+  .frow-top{display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap;}
+  .badge{
+    display:flex;align-items:center;gap:5px;
+    font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.05em;
+    padding:2px 7px;border-radius:4px;text-transform:uppercase;
+  }
+  .badge svg{width:11px;height:11px;}
+  .badge.pr{background:rgba(124,137,249,.13);color:var(--indigo);}
+  .badge.push{background:rgba(79,209,197,.13);color:var(--teal);}
+  .badge.branch{background:rgba(240,168,59,.13);color:var(--amber);}
+  .badge.commit{background:rgba(135,145,166,.13);color:var(--text-dim);}
+  .src{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;color:var(--text-faint);border:1px solid var(--border);padding:1px 6px;border-radius:3px;}
+  .src svg{width:10px;height:10px;}
+  .actor{font-size:12.5px;color:var(--text-dim);}
+  .actor b{color:var(--text);font-weight:500;}
+  .ftime{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-faint);}
+  .ftitle{font-size:14px;font-weight:500;color:var(--text);margin:2px 0 3px;}
+  .frepo{font-size:12px;color:var(--text-faint);}
+  .frepo a{color:var(--text-dim);text-decoration:none;}
+  .frepo a:hover{color:var(--teal);}
+
+  /* ---------- people ---------- */
+  .people{padding:8px 18px 14px;}
+  .person{padding:12px 0;}
+  .person + .person{border-top:1px solid var(--border-soft);}
+  .prow{display:flex;align-items:center;gap:12px;}
+  .avatar{
+    width:36px;height:36px;border-radius:50%;flex-shrink:0;
+    background:var(--surface-3);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:12px;font-weight:600;color:var(--teal);
+  }
+  .pname{font-size:14px;font-weight:600;color:var(--text);}
+  .prole{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;}
+  .pev{margin-left:auto;text-align:right;}
+  .pev .n{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--teal);}
+  .pev .l{font-size:10px;color:var(--text-faint);}
+  .pstats{display:flex;gap:14px;margin-top:9px;padding-left:48px;flex-wrap:wrap;}
+  .pstats span{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;color:var(--text-faint);}
+  .pstats svg{width:11px;height:11px;color:var(--text-faint);}
+  .pstats b{color:var(--text-dim);font-weight:500;}
+
+  /* ---------- focus ---------- */
+  .focus-body{padding:16px 18px 18px;}
+  .focus-top{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+  .focus-avatar{
+    width:46px;height:46px;border-radius:50%;
+    background:linear-gradient(160deg,var(--teal-dim),var(--surface-3));
+    border:1px solid var(--teal-dim);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-weight:600;color:var(--teal);font-size:15px;
+  }
+  .focus-name{font-size:15px;font-weight:600;}
+  .focus-sub{font-family:var(--mono);font-size:11px;color:var(--text-faint);}
+  .score-badge{
+    margin-left:auto;text-align:center;
+    background:rgba(79,209,197,.1);border:1px solid var(--teal-dim);
+    border-radius:8px;padding:6px 12px;
+  }
+  .score-badge .n{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--teal);}
+  .score-badge .l{font-size:9px;color:var(--text-faint);letter-spacing:.06em;text-transform:uppercase;}
+  .focus-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:18px;}
+  .focus-cell{background:var(--surface-2);padding:10px 12px;display:flex;align-items:center;gap:9px;}
+  .focus-cell svg{width:14px;height:14px;color:var(--text-faint);flex-shrink:0;}
+  .focus-cell .n{font-family:var(--mono);font-size:17px;font-weight:600;}
+  .focus-cell .l{font-size:10.5px;color:var(--text-faint);margin-top:1px;}
+  .focus-recent-title{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--text-faint);margin-bottom:8px;}
+  .frecent{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border-soft);}
+  .frecent:first-of-type{border-top:none;}
+  .frecent .label{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--indigo);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;}
+  .frecent .label svg{width:11px;height:11px;}
+  .frecent .title{font-size:12.5px;color:var(--text);margin-top:2px;}
+  .frecent .time{font-family:var(--mono);font-size:11px;color:var(--text-faint);white-space:nowrap;}
+
+  @media (max-width:1180px){
+    .grid{grid-template-columns:1fr;}
+    .stat-groups{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow"><span class="live-dot"></span> LIVE ACTIVITY</div>
+      <div class="tabs">
+        <div class="tab active"><i class="icn" data-icon="github" data-size="13"></i>GitHub</div>
+        <div class="tab"><i class="icn" data-icon="gitlab" data-size="13"></i>GitLab</div>
+        <div class="tab"><i class="icn" data-icon="jira" data-size="13"></i>Jira</div>
+        <div class="tab"><i class="icn" data-icon="slack" data-size="13"></i>Slack</div>
+      </div>
+      <div class="meta">
+        <b>5 events</b>
+        <span class="dot"></span>
+        <span class="src-count"><i class="icn" data-icon="github" data-size="11"></i>5</span>
+        <span class="src-count"><i class="icn" data-icon="jira" data-size="11"></i>0</span>
+        <span class="src-count"><i class="icn" data-icon="slack" data-size="11"></i>0</span>
+        <span class="dot"></span>
+        updated 29m ago
+      </div>
+    </div>
+    <div class="header-right">
+      <select><option>Last 7 days</option><option>Last 24 hours</option><option>Last 30 days</option></select>
+      <button class="btn primary"><i class="icn" data-icon="refresh" data-size="14"></i>Refresh</button>
+    </div>
+  </div>
+
+  <div class="stat-groups">
+    <div class="stat-group github">
+      <div class="sg-head">
+        <i class="icn platform-icn" data-icon="github" data-size="16"></i>
+        <div class="platform-name">GITHUB</div>
+        <div class="sg-total">5 events</div>
+      </div>
+      <div class="sg-tiles">
+        <div class="sg-tile accent"><i class="icn tic" data-icon="commit" data-size="14"></i><div class="n">1</div><div class="l">Commits</div></div>
+        <div class="sg-tile accent"><i class="icn tic" data-icon="push" data-size="14"></i><div class="n">2</div><div class="l">Pushes</div></div>
+        <div class="sg-tile"><i class="icn tic" data-icon="pr" data-size="14"></i><div class="n">1</div><div class="l">PRs open</div></div>
+        <div class="sg-tile"><i class="icn tic" data-icon="merge" data-size="14"></i><div class="n">0</div><div class="l">Merged</div></div>
+        <div class="sg-tile"><i class="icn tic" data-icon="branch" data-size="14"></i><div class="n">1</div><div class="l">Branches</div></div>
+        <div class="sg-tile"><i class="icn tic" data-icon="eye" data-size="14"></i><div class="n">0</div><div class="l">Reviews</div></div>
+      </div>
+    </div>
+
+    <div class="stat-group jira">
+      <div class="sg-head">
+        <i class="icn platform-icn" data-icon="jira" data-size="16"></i>
+        <div class="platform-name">JIRA</div>
+        <div class="sg-total zero">0 events</div>
+      </div>
+      <div class="sg-tiles">
+        <div class="sg-tile"><i class="icn tic" data-icon="check" data-size="14"></i><div class="n">0</div><div class="l">Done</div></div>
+        <div class="sg-tile warn"><i class="icn tic" data-icon="bug" data-size="14"></i><div class="n">0</div><div class="l">Bugs</div></div>
+        <div class="sg-tile"><i class="icn tic" data-icon="wrench" data-size="14"></i><div class="n">0</div><div class="l">Fixed</div></div>
+        <div class="sg-tile"><i class="icn tic" data-icon="shield" data-size="14"></i><div class="n">0</div><div class="l">Verified</div></div>
+        <div class="sg-tile danger"><i class="icn tic" data-icon="alert" data-size="14"></i><div class="n">0</div><div class="l">Escaped</div></div>
+      </div>
+    </div>
+
+    <div class="stat-group slack">
+      <div class="sg-head">
+        <i class="icn platform-icn" data-icon="slack" data-size="16"></i>
+        <div class="platform-name">SLACK</div>
+        <div class="sg-total zero">0 events</div>
+      </div>
+      <div class="sg-tiles">
+        <div class="sg-tile"><i class="icn tic" data-icon="message" data-size="14"></i><div class="n">0</div><div class="l">Messages</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-head">
+      <div class="timeline-title"><i class="icn" data-icon="clock" data-size="13"></i>WHEN · BY HOUR</div>
+      <div class="timeline-now">23:00 → NOW</div>
+    </div>
+    <div class="bars" id="bars"></div>
+    <div class="hours">
+      <span>0</span><span></span><span></span><span>3</span><span></span><span></span>
+      <span>6</span><span></span><span></span><span>9</span><span></span><span></span>
+      <span>12</span><span></span><span></span><span>15</span><span></span><span></span>
+      <span>18</span><span></span><span></span><span>21</span><span></span><span>now</span>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="icn" data-icon="activity" data-size="13"></i>TEAM FEED</div>
+        <div class="panel-count">5</div>
+      </div>
+      <div class="feed">
+        <div class="feed-item">
+          <div class="dot-col"><div class="fdot pr"></div></div>
+          <div class="fbody">
+            <div class="frow-top">
+              <span class="badge pr"><i class="icn" data-icon="pr" data-size="11"></i>PR open</span>
+              <span class="src"><i class="icn" data-icon="github" data-size="10"></i>GH</span>
+              <span class="actor">by <b>rayhan</b></span>
+              <span class="ftime">29m</span>
+            </div>
+            <div class="ftitle">Delete run.py</div>
+            <div class="frepo"><a href="#">ronyrayhan/accountsd-v4</a> · Jul 28, 11:45 PM</div>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="dot-col"><div class="fdot push"></div></div>
+          <div class="fbody">
+            <div class="frow-top">
+              <span class="badge push"><i class="icn" data-icon="push" data-size="11"></i>Push</span>
+              <span class="src"><i class="icn" data-icon="github" data-size="10"></i>GH</span>
+              <span class="actor">by <b>rayhan</b></span>
+              <span class="ftime">30m</span>
+            </div>
+            <div class="ftitle">Push to test (0 commits)</div>
+            <div class="frepo"><a href="#">ronyrayhan/accountsd-v4</a> · Jul 28, 11:44 PM</div>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="dot-col"><div class="fdot branch"></div></div>
+          <div class="fbody">
+            <div class="frow-top">
+              <span class="badge branch"><i class="icn" data-icon="branch" data-size="11"></i>Branch</span>
+              <span class="src"><i class="icn" data-icon="github" data-size="10"></i>GH</span>
+              <span class="actor">by <b>rayhan</b></span>
+              <span class="ftime">31m</span>
+            </div>
+            <div class="ftitle">Created branch test</div>
+            <div class="frepo"><a href="#">ronyrayhan/accountsd-v4</a> · Jul 28, 11:43 PM</div>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="dot-col"><div class="fdot commit"></div></div>
+          <div class="fbody">
+            <div class="frow-top">
+              <span class="badge commit"><i class="icn" data-icon="commit" data-size="11"></i>Commit</span>
+              <span class="src"><i class="icn" data-icon="github" data-size="10"></i>GH</span>
+              <span class="actor">by <b>rayhan</b></span>
+              <span class="ftime">34m</span>
+            </div>
+            <div class="ftitle">Removed uploads</div>
+            <div class="frepo"><a href="#">ronyrayhan/accountsd-v4</a> · Jul 28, 11:40 PM</div>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="dot-col"><div class="fdot push"></div></div>
+          <div class="fbody">
+            <div class="frow-top">
+              <span class="badge push"><i class="icn" data-icon="push" data-size="11"></i>Push</span>
+              <span class="src"><i class="icn" data-icon="github" data-size="10"></i>GH</span>
+              <span class="actor">by <b>rayhan</b></span>
+              <span class="ftime">37m</span>
+            </div>
+            <div class="ftitle">Push to main (0 commits)</div>
+            <div class="frepo"><a href="#">ronyrayhan/accountsd-v4</a> · Jul 28, 11:37 PM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="icn" data-icon="users" data-size="13"></i>PEOPLE</div>
+        <div class="panel-count">2</div>
+      </div>
+      <div class="people">
+        <div class="person">
+          <div class="prow">
+            <div class="avatar">RH</div>
+            <div>
+              <div class="pname">rayhan</div>
+              <div class="prole">Developer</div>
+            </div>
+            <div class="pev"><div class="n">6</div><div class="l">5 ev</div></div>
+          </div>
+          <div class="pstats">
+            <span><i class="icn" data-icon="commit" data-size="11"></i><b>1</b> commit</span>
+            <span><i class="icn" data-icon="push" data-size="11"></i><b>2</b> push</span>
+            <span><i class="icn" data-icon="merge" data-size="11"></i><b>0</b> merged</span>
+            <span><i class="icn" data-icon="jira" data-size="11"></i><b>0</b> jira</span>
+          </div>
+        </div>
+        <div class="person">
+          <div class="prow">
+            <div class="avatar" style="color:var(--text-faint);">AM</div>
+            <div>
+              <div class="pname">amin</div>
+              <div class="prole">Developer</div>
+            </div>
+            <div class="pev"><div class="n" style="color:var(--text-faint);">0</div><div class="l">0 ev</div></div>
+          </div>
+          <div class="pstats">
+            <span><i class="icn" data-icon="commit" data-size="11"></i><b>0</b> commit</span>
+            <span><i class="icn" data-icon="push" data-size="11"></i><b>0</b> push</span>
+            <span><i class="icn" data-icon="merge" data-size="11"></i><b>0</b> merged</span>
+            <span><i class="icn" data-icon="jira" data-size="11"></i><b>0</b> jira</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="icn" data-icon="target" data-size="13"></i>EMPLOYEE FOCUS</div>
+        <div class="panel-count">auto · 8s</div>
+      </div>
+      <div class="focus-body">
+        <div class="focus-top">
+          <div class="focus-avatar">RH</div>
+          <div>
+            <div class="focus-name">rayhan</div>
+            <div class="focus-sub">29m ago</div>
+          </div>
+          <div class="score-badge"><div class="n">6</div><div class="l">Score</div></div>
+        </div>
+        <div class="focus-grid">
+          <div class="focus-cell"><i class="icn" data-icon="commit" data-size="14"></i><div><div class="n">1</div><div class="l">Commits</div></div></div>
+          <div class="focus-cell"><i class="icn" data-icon="push" data-size="14"></i><div><div class="n">2</div><div class="l">Pushes</div></div></div>
+          <div class="focus-cell"><i class="icn" data-icon="merge" data-size="14"></i><div><div class="n">0</div><div class="l">Merged</div></div></div>
+          <div class="focus-cell"><i class="icn" data-icon="branch" data-size="14"></i><div><div class="n">1</div><div class="l">Branches</div></div></div>
+          <div class="focus-cell"><i class="icn" data-icon="eye" data-size="14"></i><div><div class="n">0</div><div class="l">Reviews</div></div></div>
+          <div class="focus-cell"><i class="icn" data-icon="jira" data-size="14"></i><div><div class="n">0</div><div class="l">Jira</div></div></div>
+          <div class="focus-cell"><i class="icn" data-icon="pr" data-size="14"></i><div><div class="n">1</div><div class="l">PRs</div></div></div>
+          <div class="focus-cell"><i class="icn" data-icon="slack" data-size="14"></i><div><div class="n">0</div><div class="l">Slack</div></div></div>
+        </div>
+        <div class="focus-recent-title"><i class="icn" data-icon="clock" data-size="11"></i>RECENT</div>
+        <div class="frecent">
+          <div><div class="label"><i class="icn" data-icon="pr" data-size="11"></i>PR open</div><div class="title">Delete run.py</div></div>
+          <div class="time">29m</div>
+        </div>
+        <div class="frecent">
+          <div><div class="label"><i class="icn" data-icon="push" data-size="11"></i>Push</div><div class="title">Push to test (0 commits)</div></div>
+          <div class="time">30m</div>
+        </div>
+        <div class="frecent">
+          <div><div class="label"><i class="icn" data-icon="branch" data-size="11"></i>Branch</div><div class="title">Created branch test</div></div>
+          <div class="time">31m</div>
+        </div>
+        <div class="frecent">
+          <div><div class="label"><i class="icn" data-icon="push" data-size="11"></i>Push</div><div class="title">Push to main (0 commits)</div></div>
+          <div class="time">37m</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const heights = [4,3,6,10,4,3,5,14,22,18,12,8,16,28,20,10,6,24,34,22,10,6,4,52];
+  const barsEl = document.getElementById('bars');
+  heights.forEach((h,i)=>{
+    const b = document.createElement('div');
+    b.className = 'bar' + (i===heights.length-1 ? ' now' : '');
+    b.style.height = h + 'px';
+    b.title = i + ':00 — ' + (i===heights.length-1 ? 'now' : h + ' events');
+    barsEl.appendChild(b);
+  });
+
+  const ICONS = {
+    commit: '<circle cx="12" cy="12" r="3"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/>',
+    push: '<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>',
+    pr: '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><line x1="6" y1="8" x2="6" y2="16"/><path d="M18 16V11a5 5 0 0 0-5-5"/>',
+    merge: '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><line x1="6" y1="8" x2="6" y2="12"/><path d="M6 12a6 6 0 0 0 6 6h4"/><line x1="18" y1="8" x2="18" y2="16"/>',
+    branch: '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="6" y1="8" x2="6" y2="16"/><path d="M6 12a6 6 0 0 0 6-6"/><line x1="18" y1="8" x2="18" y2="12"/>',
+    eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    check: '<circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/>',
+    bug: '<circle cx="12" cy="14" r="5"/><line x1="9" y1="9" x2="7" y2="6"/><line x1="15" y1="9" x2="17" y2="6"/><line x1="7" y1="14" x2="2" y2="14"/><line x1="17" y1="14" x2="22" y2="14"/><line x1="8" y1="19" x2="5" y2="21"/><line x1="16" y1="19" x2="19" y2="21"/><line x1="12" y1="9" x2="12" y2="6"/>',
+    wrench: '<path d="M14.7 6.3a4 4 0 1 1-5.4 5.4L4.5 16.5a1.5 1.5 0 0 0 2.1 2.1L11.4 14a4 4 0 0 1 5.4-5.4z"/>',
+    shield: '<path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><polyline points="9 12 11 14 15.5 9.5"/>',
+    alert: '<path d="M12 3 2 20h20L12 3z"/><line x1="12" y1="10" x2="12" y2="14.5"/><line x1="12" y1="17" x2="12" y2="17"/>',
+    message: '<path d="M21 11.5a8.4 8.4 0 0 1-8.4 8.4 8.3 8.3 0 0 1-3.8-.9L3 21l1.9-5.8a8.3 8.3 0 0 1-.9-3.7A8.4 8.4 0 0 1 12.5 3a8.4 8.4 0 0 1 8.5 8.5z"/>',
+    github: '<path d="M8 3 3 12l5 9"/><path d="M16 3l5 9-5 9"/>',
+    gitlab: '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="6" y1="8" x2="6" y2="16"/><path d="M6 12a6 6 0 0 0 6-6"/><line x1="18" y1="8" x2="18" y2="12"/>',
+    jira: '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20" stroke-dasharray="2 2"/>',
+    slack: '<rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 16l-2 4v-4z"/>',
+    activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    users: '<circle cx="9" cy="7" r="3.2"/><path d="M2.5 20v-1.5A4 4 0 0 1 6.5 14.5h5A4 4 0 0 1 15.5 18.5V20"/><circle cx="17" cy="8" r="2.4"/><path d="M17.5 14.7A4 4 0 0 1 21.5 18.5V20"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>',
+    refresh: '<path d="M22 5v6h-6"/><path d="M2 19v-6h6"/><path d="M3.5 9a8.5 8.5 0 0 1 14-3.5L22 9"/><path d="M20.5 15a8.5 8.5 0 0 1-14 3.5L2 15"/>'
+  };
+  document.querySelectorAll('i.icn').forEach(el=>{
+    const name = el.getAttribute('data-icon');
+    const size = el.getAttribute('data-size') || 14;
+    const paths = ICONS[name] || '';
+    el.outerHTML = '<svg class="icn" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+paths+'</svg>';
+  });
+</script>
+</body>
+</html>
